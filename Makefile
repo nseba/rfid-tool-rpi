@@ -13,7 +13,7 @@ CMD_DIR := cmd
 # Go build configuration for cross-compilation
 GOOS := linux
 GOARCH := arm
-GOARM := 6
+GOARM := 7
 
 # Build flags
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
@@ -123,9 +123,9 @@ cross-build: deps
 	@echo "$(YELLOW)Cross-compiling for Raspberry Pi ($(GOOS)/$(GOARCH))...$(NC)"
 	@mkdir -p $(BUILD_DIR)
 	@CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM) \
-		go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(APP_NAME)-rpi ./$(CMD_DIR)/main.go
+		go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(APP_NAME)-rpi2b ./$(CMD_DIR)/main.go
 	@echo "$(GREEN)✓ Cross-compilation completed$(NC)"
-	@ls -lh $(BUILD_DIR)/$(APP_NAME)-rpi
+	@ls -lh $(BUILD_DIR)/$(APP_NAME)-rpi2b
 
 # Build for current platform (development)
 local-build: deps
@@ -172,7 +172,7 @@ info:
 	@echo "=================="
 	@echo "App name: $(APP_NAME)"
 	@echo "Version: $(VERSION)"
-	@echo "Target: $(GOOS)/$(GOARCH) (ARM v$(GOARM))"
+	@echo "Target: $GOOS/$GOARCH (ARM v$GOARM - Raspberry Pi 2B v1.1)"
 	@echo "Build time: $(BUILD_TIME)"
 	@echo "Git commit: $(GIT_COMMIT)"
 	@echo "LDFLAGS: $(LDFLAGS)"
@@ -200,12 +200,12 @@ ci-security:
 ci-build-all: clean deps
 	@echo "$(YELLOW)Building all CI targets...$(NC)"
 	@mkdir -p $(BUILD_DIR)
-	# ARM v6 (Raspberry Pi 2B)
-	@CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 \
-		go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(APP_NAME)-rpi ./$(CMD_DIR)/main.go
-	# ARM v7 (Raspberry Pi 3/4)
+	# ARM v7 (Raspberry Pi 2B v1.1)
 	@CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 \
-		go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(APP_NAME)-armv7 ./$(CMD_DIR)/main.go
+		go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(APP_NAME)-rpi2b ./$(CMD_DIR)/main.go
+	# ARM v6 (Older Raspberry Pi models)
+	@CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 \
+		go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(APP_NAME)-armv6 ./$(CMD_DIR)/main.go
 	# ARM64
 	@CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
 		go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(APP_NAME)-arm64 ./$(CMD_DIR)/main.go
@@ -217,14 +217,14 @@ ci-build-all: clean deps
 ci-package: ci-build-all
 	@echo "$(YELLOW)Creating CI distribution packages...$(NC)"
 	@mkdir -p $(DIST_DIR)
-	@for arch in rpi armv7 arm64 amd64; do \
+	@for arch in rpi2b armv6 arm64 amd64; do \
 		DIST_NAME="$(APP_NAME)-$$arch-$(VERSION)"; \
 		DIST_PATH="$(DIST_DIR)/$$DIST_NAME"; \
 		mkdir -p "$$DIST_PATH"; \
 		cp "$(BUILD_DIR)/$(APP_NAME)-$$arch" "$$DIST_PATH/$(APP_NAME)"; \
 		chmod +x "$$DIST_PATH/$(APP_NAME)"; \
 		cp config.json README.md WIRING.md QUICKSTART.md "$$DIST_PATH/"; \
-		if [ "$$arch" = "rpi" ]; then \
+		if [ "$$arch" = "rpi2b" ]; then \
 			cp scripts/install-rpi.sh "$$DIST_PATH/install.sh"; \
 		else \
 			sed 's/rfid-tool-rpi/rfid-tool/g' scripts/install-rpi.sh > "$$DIST_PATH/install.sh"; \

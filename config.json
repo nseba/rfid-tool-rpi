@@ -1,22 +1,45 @@
 {
-  "rfid": {
-    "spi_bus": 0,
-    "spi_device": 0,
-    "reset_pin": 22,
-    "irq_pin": 18,
-    "spi_speed": 1000000,
-    "retry_count": 3
-  },
-  "hardware": {
-    "read_button": 2,
-    "write_button": 3,
-    "status_led": 4,
-    "error_led": 17,
-    "ready_led": 27
-  },
-  "web": {
-    "static_dir": "web/static",
-    "templates_dir": "web/templates",
-    "upload_dir": "uploads"
-  }
+    "rfid": {
+        "spi_bus": 0,
+        "spi_device": 0,
+        "reset_pin": 22,
+        "irq_pin": 18,
+        "spi_speed": 500000,
+        "retry_count": 3
+    },
+    "hardware": {
+        "read_button": 2,
+        "write_button": 3,
+        "status_led": 4,
+        "error_led": 17,
+        "ready_led": 27
+    },
+    "web": {
+        "static_dir": "web/static",
+        "templates_dir": "web/templates",
+        "upload_dir": "uploads"
+    },
+    "system": {
+        "target_board": "rpi2b_v1.1",
+        "soc": "bcm2836",
+        "architecture": "armv7",
+        "cpu": "cortex_a7",
+        "max_memory_mb": 1024,
+        "gpio_driver": "bcm2835",
+        "spi_max_speed": 32000000,
+        "optimized_for_cortex_a7": true
+    },
+    "performance": {
+        "polling_interval_ms": 100,
+        "debounce_delay_ms": 50,
+        "led_fade_time_ms": 250,
+        "operation_timeout_ms": 5000,
+        "web_refresh_rate_ms": 1000
+    },
+    "compatibility": {
+        "raspberry_pi_models": ["2B_v1.1"],
+        "bcm_soc_versions": ["BCM2836"],
+        "tested_kernel_versions": ["5.4+", "5.10+", "5.15+", "6.1+"],
+        "required_kernel_modules": ["spi_bcm2835", "gpio_bcm2835"]
+    }
 }

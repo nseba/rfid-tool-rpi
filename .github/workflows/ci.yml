@@ -1,393 +1,401 @@
 name: CI/CD Pipeline
 
 on:
-  push:
-    branches: [ main, develop ]
-    tags: [ 'v*' ]
-  pull_request:
-    branches: [ main ]
+    push:
+        branches: [main, develop]
+        tags: ["v*"]
+    pull_request:
+        branches: [main]
 
 env:
-  GO_VERSION: '1.21'
-  APP_NAME: 'rfid-tool'
+    GO_VERSION: "1.21"
+    APP_NAME: "rfid-tool"
 
 jobs:
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    test:
+        name: Test
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ env.GO_VERSION }}
+            - name: Set up Go
+              uses: actions/setup-go@v4
+              with:
+                  go-version: ${{ env.GO_VERSION }}
 
-    - name: Cache Go modules
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
+            - name: Cache Go modules
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.cache/go-build
+                      ~/go/pkg/mod
+                  key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+                  restore-keys: |
+                      ${{ runner.os }}-go-
 
-    - name: Download dependencies
-      run: go mod download
+            - name: Download dependencies
+              run: go mod download
 
-    - name: Verify dependencies
-      run: go mod verify
+            - name: Verify dependencies
+              run: go mod verify
 
-    - name: Run tests
-      run: go test -v -race -coverprofile=coverage.out ./...
+            - name: Run tests
+              run: go test -v -race -coverprofile=coverage.out ./...
 
-    - name: Generate coverage report
-      run: go tool cover -html=coverage.out -o coverage.html
+            - name: Generate coverage report
+              run: go tool cover -html=coverage.out -o coverage.html
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.out
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v3
+              with:
+                  file: ./coverage.out
+                  flags: unittests
+                  name: codecov-umbrella
+                  fail_ci_if_error: false
 
-    - name: Upload coverage artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: coverage-report
-        path: coverage.html
+            - name: Upload coverage artifacts
+              uses: actions/upload-artifact@v3
+              with:
+                  name: coverage-report
+                  path: coverage.html
 
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    lint:
+        name: Lint
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ env.GO_VERSION }}
+            - name: Set up Go
+              uses: actions/setup-go@v4
+              with:
+                  go-version: ${{ env.GO_VERSION }}
 
-    - name: golangci-lint
-      uses: golangci/golangci-lint-action@v3
-      with:
-        version: latest
-        args: --timeout=5m
+            - name: golangci-lint
+              uses: golangci/golangci-lint-action@v3
+              with:
+                  version: latest
+                  args: --timeout=5m
 
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    security:
+        name: Security Scan
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
 
-    - name: Run Gosec Security Scanner
-      uses: securecodewarrior/github-action-gosec@master
-      with:
-        args: '-no-fail -fmt sarif -out results.sarif ./...'
+            - name: Run Gosec Security Scanner
+              uses: securecodewarrior/github-action-gosec@master
+              with:
+                  args: "-no-fail -fmt sarif -out results.sarif ./..."
 
-    - name: Upload SARIF file
-      uses: github/codeql-action/upload-sarif@v2
-      with:
-        sarif_file: results.sarif
+            - name: Upload SARIF file
+              uses: github/codeql-action/upload-sarif@v2
+              with:
+                  sarif_file: results.sarif
 
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    needs: [test, lint]
-    strategy:
-      matrix:
-        include:
-          - goos: linux
-            goarch: arm
-            goarm: 6
-            suffix: rpi
-          - goos: linux
-            goarch: arm64
-            suffix: arm64
-          - goos: linux
-            goarch: amd64
-            suffix: amd64
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+    build:
+        name: Build
+        runs-on: ubuntu-latest
+        needs: [test, lint]
+        strategy:
+            matrix:
+                include:
+                    - goos: linux
+                      goarch: arm
+                      goarm: 7
+                      suffix: rpi2b
+                      desc: "Raspberry Pi 2B v1.1 (ARM Cortex-A7)"
+                    - goos: linux
+                      goarch: arm
+                      goarm: 6
+                      suffix: armv6
+                      desc: "Older Raspberry Pi models (ARM v6)"
+                    - goos: linux
+                      goarch: arm64
+                      suffix: arm64
+                      desc: "ARM64 (Raspberry Pi 4, Pi 400)"
+                    - goos: linux
+                      goarch: amd64
+                      suffix: amd64
+                      desc: "x86-64 Linux"
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ env.GO_VERSION }}
+            - name: Set up Go
+              uses: actions/setup-go@v4
+              with:
+                  go-version: ${{ env.GO_VERSION }}
 
-    - name: Cache Go modules
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
+            - name: Cache Go modules
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.cache/go-build
+                      ~/go/pkg/mod
+                  key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+                  restore-keys: |
+                      ${{ runner.os }}-go-
 
-    - name: Get version
-      id: version
-      run: |
-        if [[ $GITHUB_REF == refs/tags/v* ]]; then
-          VERSION=${GITHUB_REF#refs/tags/v}
-        else
-          VERSION=$(git describe --tags --always --dirty)
-        fi
-        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-        echo "BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')" >> $GITHUB_OUTPUT
-        echo "GIT_COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+            - name: Get version
+              id: version
+              run: |
+                  if [[ $GITHUB_REF == refs/tags/v* ]]; then
+                    VERSION=${GITHUB_REF#refs/tags/v}
+                  else
+                    VERSION=$(git describe --tags --always --dirty)
+                  fi
+                  echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+                  echo "BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')" >> $GITHUB_OUTPUT
+                  echo "GIT_COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-    - name: Build binary
-      env:
-        CGO_ENABLED: 0
-        GOOS: ${{ matrix.goos }}
-        GOARCH: ${{ matrix.goarch }}
-        GOARM: ${{ matrix.goarm }}
-      run: |
-        LDFLAGS="-s -w -X main.version=${{ steps.version.outputs.VERSION }} -X main.buildTime=${{ steps.version.outputs.BUILD_TIME }} -X main.gitCommit=${{ steps.version.outputs.GIT_COMMIT }}"
-        go build -ldflags "$LDFLAGS" -o build/${{ env.APP_NAME }}-${{ matrix.suffix }} ./cmd/main.go
+            - name: Build binary
+              env:
+                  CGO_ENABLED: 0
+                  GOOS: ${{ matrix.goos }}
+                  GOARCH: ${{ matrix.goarch }}
+                  GOARM: ${{ matrix.goarm }}
+              run: |
+                  LDFLAGS="-s -w -X main.version=${{ steps.version.outputs.VERSION }} -X main.buildTime=${{ steps.version.outputs.BUILD_TIME }} -X main.gitCommit=${{ steps.version.outputs.GIT_COMMIT }}"
+                  go build -ldflags "$LDFLAGS" -o build/${{ env.APP_NAME }}-${{ matrix.suffix }} ./cmd/main.go
 
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: ${{ env.APP_NAME }}-${{ matrix.suffix }}
-        path: build/${{ env.APP_NAME }}-${{ matrix.suffix }}
+            - name: Upload build artifacts
+              uses: actions/upload-artifact@v3
+              with:
+                  name: ${{ env.APP_NAME }}-${{ matrix.suffix }}
+                  path: build/${{ env.APP_NAME }}-${{ matrix.suffix }}
 
-  package:
-    name: Create Distribution Package
-    runs-on: ubuntu-latest
-    needs: [build]
-    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main')
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+    package:
+        name: Create Distribution Package
+        runs-on: ubuntu-latest
+        needs: [build]
+        if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main')
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
 
-    - name: Download artifacts
-      uses: actions/download-artifact@v3
+            - name: Download artifacts
+              uses: actions/download-artifact@v3
 
-    - name: Get version
-      id: version
-      run: |
-        if [[ $GITHUB_REF == refs/tags/v* ]]; then
-          VERSION=${GITHUB_REF#refs/tags/v}
-        else
-          VERSION=$(git describe --tags --always --dirty)
-        fi
-        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+            - name: Get version
+              id: version
+              run: |
+                  if [[ $GITHUB_REF == refs/tags/v* ]]; then
+                    VERSION=${GITHUB_REF#refs/tags/v}
+                  else
+                    VERSION=$(git describe --tags --always --dirty)
+                  fi
+                  echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
-    - name: Create distribution packages
-      run: |
-        mkdir -p dist
+            - name: Create distribution packages
+              run: |
+                  mkdir -p dist
 
-        # Create package for each architecture
-        for arch in rpi arm64 amd64; do
-          DIST_NAME="${{ env.APP_NAME }}-${arch}-${{ steps.version.outputs.VERSION }}"
-          DIST_PATH="dist/$DIST_NAME"
+                  # Create package for each architecture
+                  for arch in rpi2b armv6 arm64 amd64; do
+                    DIST_NAME="${{ env.APP_NAME }}-${arch}-${{ steps.version.outputs.VERSION }}"
+                    DIST_PATH="dist/$DIST_NAME"
 
-          mkdir -p "$DIST_PATH"
+                    mkdir -p "$DIST_PATH"
 
-          # Copy binary
-          cp "${{ env.APP_NAME }}-${arch}/${{ env.APP_NAME }}-${arch}" "$DIST_PATH/${{ env.APP_NAME }}"
-          chmod +x "$DIST_PATH/${{ env.APP_NAME }}"
+                    # Copy binary
+                    cp "${{ env.APP_NAME }}-${arch}/${{ env.APP_NAME }}-${arch}" "$DIST_PATH/${{ env.APP_NAME }}"
+                    chmod +x "$DIST_PATH/${{ env.APP_NAME }}"
 
-          # Copy configuration and docs
-          cp config.json "$DIST_PATH/"
-          cp README.md "$DIST_PATH/"
-          cp WIRING.md "$DIST_PATH/"
-          cp QUICKSTART.md "$DIST_PATH/"
+                    # Copy configuration and docs
+                    cp config.json "$DIST_PATH/"
+                    cp README.md "$DIST_PATH/"
+                    cp WIRING.md "$DIST_PATH/"
+                    cp QUICKSTART.md "$DIST_PATH/"
 
-          # Create architecture-specific install script
-          if [ "$arch" = "rpi" ]; then
-            cp scripts/install-rpi.sh "$DIST_PATH/install.sh"
-          else
-            # Generic Linux install script
-            sed 's/rfid-tool-rpi/rfid-tool/g' scripts/install-rpi.sh > "$DIST_PATH/install.sh"
-          fi
-          chmod +x "$DIST_PATH/install.sh"
+                    # Create architecture-specific install script
+                    if [ "$arch" = "rpi2b" ]; then
+                      cp scripts/install-rpi.sh "$DIST_PATH/install.sh"
+                    else
+                      # Generic Linux install script
+                      sed 's/rfid-tool-rpi/rfid-tool/g' scripts/install-rpi.sh > "$DIST_PATH/install.sh"
+                    fi
+                    chmod +x "$DIST_PATH/install.sh"
 
-          # Create uninstall script
-          cat > "$DIST_PATH/uninstall.sh" << 'EOF'
-        #!/bin/bash
-        SERVICE_NAME="rfid-tool"
-        INSTALL_DIR="/opt/rfid-tool"
+                    # Create uninstall script
+                    cat > "$DIST_PATH/uninstall.sh" << 'EOF'
+                  #!/bin/bash
+                  SERVICE_NAME="rfid-tool"
+                  INSTALL_DIR="/opt/rfid-tool"
 
-        echo "Uninstalling RFID Tool..."
+                  echo "Uninstalling RFID Tool..."
 
-        if [ "$EUID" -ne 0 ]; then
-            echo "Please run as root (use sudo)"
-            exit 1
-        fi
+                  if [ "$EUID" -ne 0 ]; then
+                      echo "Please run as root (use sudo)"
+                      exit 1
+                  fi
 
-        systemctl stop ${SERVICE_NAME}-web 2>/dev/null || true
-        systemctl stop ${SERVICE_NAME}-hw 2>/dev/null || true
-        systemctl disable ${SERVICE_NAME}-web 2>/dev/null || true
-        systemctl disable ${SERVICE_NAME}-hw 2>/dev/null || true
+                  systemctl stop ${SERVICE_NAME}-web 2>/dev/null || true
+                  systemctl stop ${SERVICE_NAME}-hw 2>/dev/null || true
+                  systemctl disable ${SERVICE_NAME}-web 2>/dev/null || true
+                  systemctl disable ${SERVICE_NAME}-hw 2>/dev/null || true
 
-        rm -f /etc/systemd/system/${SERVICE_NAME}-web.service
-        rm -f /etc/systemd/system/${SERVICE_NAME}-hw.service
-        systemctl daemon-reload
+                  rm -f /etc/systemd/system/${SERVICE_NAME}-web.service
+                  rm -f /etc/systemd/system/${SERVICE_NAME}-hw.service
+                  systemctl daemon-reload
 
-        rm -rf $INSTALL_DIR
-        echo "Uninstall complete!"
-        EOF
-          chmod +x "$DIST_PATH/uninstall.sh"
+                  rm -rf $INSTALL_DIR
+                  echo "Uninstall complete!"
+                  EOF
+                    chmod +x "$DIST_PATH/uninstall.sh"
 
-          # Create archive
-          cd dist
-          tar -czf "${DIST_NAME}.tar.gz" "$DIST_NAME"
-          cd ..
-        done
+                    # Create archive
+                    cd dist
+                    tar -czf "${DIST_NAME}.tar.gz" "$DIST_NAME"
+                    cd ..
+                  done
 
-    - name: Upload distribution packages
-      uses: actions/upload-artifact@v3
-      with:
-        name: distribution-packages
-        path: dist/*.tar.gz
+            - name: Upload distribution packages
+              uses: actions/upload-artifact@v3
+              with:
+                  name: distribution-packages
+                  path: dist/*.tar.gz
 
-  release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    needs: [test, lint, build, package]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: write
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+    release:
+        name: Create Release
+        runs-on: ubuntu-latest
+        needs: [test, lint, build, package]
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        permissions:
+            contents: write
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
 
-    - name: Download distribution packages
-      uses: actions/download-artifact@v3
-      with:
-        name: distribution-packages
-        path: dist/
+            - name: Download distribution packages
+              uses: actions/download-artifact@v3
+              with:
+                  name: distribution-packages
+                  path: dist/
 
-    - name: Get version and changelog
-      id: version
-      run: |
-        VERSION=${GITHUB_REF#refs/tags/v}
-        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+            - name: Get version and changelog
+              id: version
+              run: |
+                  VERSION=${GITHUB_REF#refs/tags/v}
+                  echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
-        # Generate changelog from commits since last tag
-        LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-        if [ -n "$LAST_TAG" ]; then
-          CHANGELOG=$(git log --pretty=format:"- %s" ${LAST_TAG}..HEAD)
-        else
-          CHANGELOG=$(git log --pretty=format:"- %s" HEAD)
-        fi
+                  # Generate changelog from commits since last tag
+                  LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+                  if [ -n "$LAST_TAG" ]; then
+                    CHANGELOG=$(git log --pretty=format:"- %s" ${LAST_TAG}..HEAD)
+                  else
+                    CHANGELOG=$(git log --pretty=format:"- %s" HEAD)
+                  fi
 
-        # Create release notes
-        cat > release_notes.md << EOF
-        # RFID Tool for Raspberry Pi v$VERSION
+                  # Create release notes
+                  cat > release_notes.md << EOF
+                  # RFID Tool for Raspberry Pi v$VERSION
 
-        ## Changes
-        $CHANGELOG
+                  ## Changes
+                  $CHANGELOG
 
-        ## Installation
+                  ## Installation
 
-        ### Raspberry Pi 2B/3/4
-        \`\`\`bash
-        wget https://github.com/${{ github.repository }}/releases/download/v$VERSION/rfid-tool-rpi-$VERSION.tar.gz
-        tar -xzf rfid-tool-rpi-$VERSION.tar.gz
-        cd rfid-tool-rpi-$VERSION
-        sudo ./install.sh
-        \`\`\`
+                  ### Raspberry Pi 2B/3/4
+                  \`\`\`bash
+                  wget https://github.com/${{ github.repository }}/releases/download/v$VERSION/rfid-tool-rpi-$VERSION.tar.gz
+                  tar -xzf rfid-tool-rpi-$VERSION.tar.gz
+                  cd rfid-tool-rpi-$VERSION
+                  sudo ./install.sh
+                  \`\`\`
 
-        ### Other ARM64 Linux
-        \`\`\`bash
-        wget https://github.com/${{ github.repository }}/releases/download/v$VERSION/rfid-tool-arm64-$VERSION.tar.gz
-        tar -xzf rfid-tool-arm64-$VERSION.tar.gz
-        cd rfid-tool-arm64-$VERSION
-        sudo ./install.sh
-        \`\`\`
+                  ### Other ARM64 Linux
+                  \`\`\`bash
+                  wget https://github.com/${{ github.repository }}/releases/download/v$VERSION/rfid-tool-arm64-$VERSION.tar.gz
+                  tar -xzf rfid-tool-arm64-$VERSION.tar.gz
+                  cd rfid-tool-arm64-$VERSION
+                  sudo ./install.sh
+                  \`\`\`
 
-        ### x64 Linux
-        \`\`\`bash
-        wget https://github.com/${{ github.repository }}/releases/download/v$VERSION/rfid-tool-amd64-$VERSION.tar.gz
-        tar -xzf rfid-tool-amd64-$VERSION.tar.gz
-        cd rfid-tool-amd64-$VERSION
-        sudo ./install.sh
-        \`\`\`
+                  ### x64 Linux
+                  \`\`\`bash
+                  wget https://github.com/${{ github.repository }}/releases/download/v$VERSION/rfid-tool-amd64-$VERSION.tar.gz
+                  tar -xzf rfid-tool-amd64-$VERSION.tar.gz
+                  cd rfid-tool-amd64-$VERSION
+                  sudo ./install.sh
+                  \`\`\`
 
-        ## Hardware Requirements
-        - RFID-RC522 Module
-        - Breadboard and jumper wires
-        - Optional: Push buttons and LEDs for hardware interface mode
+                  ## Hardware Requirements
+                  - RFID-RC522 Module
+                  - Breadboard and jumper wires
+                  - Optional: Push buttons and LEDs for hardware interface mode
 
-        ## Features
-        - Web interface with real-time card detection
-        - Hardware button/LED interface
-        - Support for MIFARE Classic 1K/4K and Ultralight cards
-        - Block-level read/write operations
-        - Automated installation and service setup
+                  ## Features
+                  - Web interface with real-time card detection
+                  - Hardware button/LED interface
+                  - Support for MIFARE Classic 1K/4K and Ultralight cards
+                  - Block-level read/write operations
+                  - Automated installation and service setup
 
-        ## Documentation
-        - [README.md](https://github.com/${{ github.repository }}/blob/v$VERSION/README.md) - Complete documentation
-        - [WIRING.md](https://github.com/${{ github.repository }}/blob/v$VERSION/WIRING.md) - Hardware wiring guide
-        - [QUICKSTART.md](https://github.com/${{ github.repository }}/blob/v$VERSION/QUICKSTART.md) - 10-minute setup guide
-        EOF
+                  ## Documentation
+                  - [README.md](https://github.com/${{ github.repository }}/blob/v$VERSION/README.md) - Complete documentation
+                  - [WIRING.md](https://github.com/${{ github.repository }}/blob/v$VERSION/WIRING.md) - Hardware wiring guide
+                  - [QUICKSTART.md](https://github.com/${{ github.repository }}/blob/v$VERSION/QUICKSTART.md) - 10-minute setup guide
+                  EOF
 
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
-      with:
-        name: RFID Tool v${{ steps.version.outputs.VERSION }}
-        body_path: release_notes.md
-        draft: false
-        prerelease: false
-        files: |
-          dist/*.tar.gz
-        generate_release_notes: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - name: Create GitHub Release
+              uses: softprops/action-gh-release@v1
+              with:
+                  name: RFID Tool v${{ steps.version.outputs.VERSION }}
+                  body_path: release_notes.md
+                  draft: false
+                  prerelease: false
+                  files: |
+                      dist/*.tar.gz
+                  generate_release_notes: false
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  docker:
-    name: Build Docker Image
-    runs-on: ubuntu-latest
-    needs: [test, lint]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    docker:
+        name: Build Docker Image
+        runs-on: ubuntu-latest
+        needs: [test, lint]
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
 
-    - name: Login to DockerHub
-      if: github.event_name != 'pull_request'
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+            - name: Login to DockerHub
+              if: github.event_name != 'pull_request'
+              uses: docker/login-action@v3
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ secrets.DOCKERHUB_USERNAME }}/rfid-tool-rpi
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
+            - name: Extract metadata
+              id: meta
+              uses: docker/metadata-action@v5
+              with:
+                  images: ${{ secrets.DOCKERHUB_USERNAME }}/rfid-tool-rpi
+                  tags: |
+                      type=ref,event=branch
+                      type=ref,event=pr
+                      type=semver,pattern={{version}}
+                      type=semver,pattern={{major}}.{{minor}}
 
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        platforms: linux/arm/v6,linux/arm64,linux/amd64
-        push: ${{ github.event_name != 'pull_request' }}
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+            - name: Build and push Docker image
+              uses: docker/build-push-action@v5
+              with:
+                  context: .
+                  platforms: linux/arm/v6,linux/arm64,linux/amd64
+                  push: ${{ github.event_name != 'pull_request' }}
+                  tags: ${{ steps.meta.outputs.tags }}
+                  labels: ${{ steps.meta.outputs.labels }}
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max

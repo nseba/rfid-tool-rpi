@@ -67,8 +67,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.RFID.ResetPin != 22 {
 		t.Errorf("Expected reset pin 22, got %d", cfg.RFID.ResetPin)
 	}
-	if cfg.RFID.SPISpeed != 1000000 {
-		t.Errorf("Expected SPI speed 1MHz, got %d", cfg.RFID.SPISpeed)
+	if cfg.RFID.SPISpeed != 500000 {
+		t.Errorf("Expected SPI speed 500kHz, got %d", cfg.RFID.SPISpeed)
 	}
 
 	// Test hardware config defaults

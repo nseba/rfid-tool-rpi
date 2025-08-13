@@ -1,315 +1,574 @@
-# RFID-RC522 Wiring Guide for Raspberry Pi 2B
+# RFID-RC522 Wiring Guide for Raspberry Pi 2B v1.1
+
+## Board Information
+
+- **Model**: Raspberry Pi 2B v1.1
+- **SoC**: BCM2836 (Broadcom)
+- **CPU**: ARM Cortex-A7 quad-core @ 900MHz
+- **Architecture**: ARMv7
+- **Memory**: 1GB LPDDR2 SDRAM
+- **GPIO**: 40-pin header (BCM2835 driver compatible)
+- **Release Date**: February 2015
 
 ## Overview
-This guide provides detailed instructions for connecting the RFID-RC522 module to a Raspberry Pi 2B using a breadboard. The setup supports both web interface and hardware button/LED interface modes.
+
+This guide provides detailed instructions for connecting the RFID-RC522 module to a Raspberry Pi 2B v1.1 using a breadboard. The setup supports both web interface and hardware button/LED interface modes, optimized specifically for the BCM2836 SoC.
 
 ## Required Components
 
-### Essential Components
-- **Raspberry Pi 2B** (or newer)
-- **RFID-RC522 Module**
+### Essential Components (RFID Only)
+- **Raspberry Pi 2B v1.1** (BCM2836, 1GB RAM)
+- **RFID-RC522 Module** (13.56MHz)
 - **Breadboard** (830-point recommended)
-- **Jumper Wires**:
-  - 8x Male-to-Female (RPi to breadboard)
-  - 10+ Male-to-Male (breadboard connections)
+- **Jumper Wires**: 8x Male-to-Female (RPi to breadboard)
 
 ### For Hardware Interface (Optional)
-- **2x Push Buttons** (momentary, normally open)
-- **3x LEDs**:
-  - 1x Green LED (Ready indicator)
-  - 1x Blue/White LED (Status indicator)
-  - 1x Red LED (Error indicator)
-- **3x 220Ω Resistors** (for LED current limiting)
-- **2x 10kΩ Resistors** (optional, for external pull-ups)
+- **Push Buttons**: 2x momentary, normally open
+- **LEDs**: 3x (Green, Blue/White, Red)
+- **Resistors**: 3x 220Ω (LED current limiting)
+- **Additional Jumper Wires**: 10+ Male-to-Male (breadboard connections)
 
-## Pin Layout Reference
+## Raspberry Pi 2B v1.1 GPIO Pinout
 
-### Raspberry Pi 2B GPIO Pinout
 ```
-     3V3  (1) (2)  5V
-   GPIO2  (3) (4)  5V
-   GPIO3  (5) (6)  GND
-   GPIO4  (7) (8)  GPIO14
-     GND  (9) (10) GPIO15
-  GPIO17 (11) (12) GPIO18
-  GPIO27 (13) (14) GND
-  GPIO22 (15) (16) GPIO23
-     3V3 (17) (18) GPIO24
-  GPIO10 (19) (20) GND
-   GPIO9 (21) (22) GPIO25
-  GPIO11 (23) (24) GPIO8
-     GND (25) (26) GPIO7
-```
-
-### RFID-RC522 Module Pinout
-```
-┌─────────────┐
-│ RC522 Module│
-├─────────────┤
-│ SDA  ●  ● ? │
-│ SCK  ●  ● ? │
-│ MOSI ●  ● ? │
-│ MISO ●  ● ? │
-│ IRQ  ●  ● ? │
-│ GND  ●  ● ? │
-│ RST  ●  ● ? │
-│ 3.3V ●  ● ? │
-└─────────────┘
+    Raspberry Pi 2B v1.1 - 40-Pin GPIO Header
+    ┌─────────────────────────────────────────┐
+    │  3V3  (1) (2)  5V     <- Never use 5V   │
+    │ GPIO2 (3) (4)  5V        for RC522!     │
+    │ GPIO3 (5) (6)  GND                      │
+    │ GPIO4 (7) (8)  GPIO14                   │
+    │  GND  (9) (10) GPIO15                   │
+    │GPIO17 (11)(12) GPIO18                   │
+    │GPIO27 (13)(14) GND                      │
+    │GPIO22 (15)(16) GPIO23                   │
+    │ 3V3  (17)(18) GPIO24                    │
+    │GPIO10 (19)(20) GND                      │
+    │ GPIO9 (21)(22) GPIO25                   │
+    │GPIO11 (23)(24) GPIO8                    │
+    │  GND  (25)(26) GPIO7                    │
+    │ ID_SD (27)(28) ID_SC                    │
+    │ GPIO5 (29)(30) GND                      │
+    │ GPIO6 (31)(32) GPIO12                   │
+    │GPIO13 (33)(34) GND                      │
+    │GPIO19 (35)(36) GPIO16                   │
+    │GPIO26 (37)(38) GPIO20                   │
+    │  GND  (39)(40) GPIO21                   │
+    └─────────────────────────────────────────┘
 ```
 
-## Connection Tables
+## RFID-RC522 Module Pinout
 
-### RFID-RC522 to Raspberry Pi Connections
-| RC522 Pin | Function | RPi Pin | RPi GPIO | Wire Color | Notes |
-|-----------|----------|---------|----------|------------|--------|
-| SDA       | SPI CS   | 24      | GPIO8    | Orange     | SPI Chip Select |
-| SCK       | SPI CLK  | 23      | GPIO11   | Yellow     | SPI Clock |
-| MOSI      | SPI MOSI | 19      | GPIO10   | Blue       | Master Out Slave In |
-| MISO      | SPI MISO | 21      | GPIO9    | Green      | Master In Slave Out |
-| IRQ       | Interrupt| 18      | GPIO24   | Purple     | Optional interrupt pin |
-| GND       | Ground   | 20      | GND      | Black      | Common ground |
-| RST       | Reset    | 15      | GPIO22   | White      | Reset signal |
-| 3.3V      | Power    | 17      | 3.3V     | Red        | **IMPORTANT: 3.3V only!** |
+```
+    RC522 Module Layout
+    ┌─────────────────┐
+    │    RC522 RFID   │
+    │                 │
+    │  SDA  SCK  MOSI │
+    │  MISO IRQ  GND  │
+    │  RST  3.3V      │
+    │                 │
+    │    [ANTENNA]    │
+    └─────────────────┘
+```
 
-### Hardware Interface Connections (Optional)
-| Component      | RPi Pin | RPi GPIO | Resistor | Wire Color | Notes |
-|----------------|---------|----------|----------|------------|--------|
-| Read Button    | 3       | GPIO2    | 10kΩ*    | Gray       | Pull-up to 3.3V |
-| Write Button   | 5       | GPIO3    | 10kΩ*    | Brown      | Pull-up to 3.3V |
-| Ready LED (+)  | 13      | GPIO27   | 220Ω     | Green      | Current limiting |
-| Status LED (+) | 7       | GPIO4    | 220Ω     | Blue       | Current limiting |
-| Error LED (+)  | 11      | GPIO17   | 220Ω     | Red        | Current limiting |
-| All LEDs (-)   | 20      | GND      | -        | Black      | Common cathode |
-| Button Commons | 20      | GND      | -        | Black      | Button other terminal |
+## Essential Connections (RFID Only)
 
-*Software pull-ups are used by default; external resistors are optional.
+### SPI Interface Connections
+| RC522 Pin | Function     | RPi Pin | BCM GPIO | Wire Color | Notes |
+|-----------|--------------|---------|----------|------------|-------|
+| SDA       | SPI0_CE0_N   | 24      | GPIO8    | Orange     | Chip Select (active low) |
+| SCK       | SPI0_SCLK    | 23      | GPIO11   | Yellow     | SPI Clock |
+| MOSI      | SPI0_MOSI    | 19      | GPIO10   | Blue       | Master Out Slave In |
+| MISO      | SPI0_MISO    | 21      | GPIO9    | Green      | Master In Slave Out |
+| IRQ       | Interrupt    | 18      | GPIO24   | Purple     | Optional interrupt signal |
+| GND       | Ground       | 20      | GND      | Black      | Common ground |
+| RST       | Reset        | 15      | GPIO22   | White      | Module reset (active low) |
+| 3.3V      | Power        | 17      | 3V3      | Red        | ⚠️ **3.3V ONLY!** |
+
+### Critical Power Warning
+⚠️ **The RC522 module MUST be powered with 3.3V only!**
+- Using 5V will permanently damage the RC522 module
+- The BCM2836 GPIO pins are 3.3V logic
+- Double-check connections before powering up
+
+## Hardware Interface Connections (Optional)
+
+### Button Connections
+| Component   | RPi Pin | BCM GPIO | Function | Notes |
+|-------------|---------|----------|----------|-------|
+| Read Button | 3       | GPIO2    | I2C1_SDA | Has strong internal pull-up |
+| Write Button| 5       | GPIO3    | I2C1_SCL | Has strong internal pull-up |
+
+**Button Wiring**:
+- One terminal → GPIO pin (3 or 5)
+- Other terminal → Ground (pins 6, 9, 14, 20, 25, 30, 34, or 39)
+- No external pull-up resistor needed (using internal)
+
+### LED Connections
+| LED Component | RPi Pin | BCM GPIO | Current Limit | Function |
+|---------------|---------|----------|---------------|----------|
+| Ready LED (Green)  | 13 | GPIO27 | 220Ω resistor | System ready status |
+| Status LED (Blue)  | 7  | GPIO4  | 220Ω resistor | Operation in progress |
+| Error LED (Red)    | 11 | GPIO17 | 220Ω resistor | Error indication |
+
+**LED Wiring**:
+- LED Anode (+, longer leg) → 220Ω resistor → GPIO pin
+- LED Cathode (-, shorter leg) → Ground rail
 
 ## Breadboard Layout Diagram
 
 ```
-                Raspberry Pi 2B
-              ┌─────────────────┐
-              │  ●●●●●●●●●●●●●●●●●●●● │ 
-              │  ●●●●●●●●●●●●●●●●●●●● │
-              └─────────────────┘
-                     │ │ │ │ │ │ │ │
-    ┌────────────────┘ │ │ │ │ │ │ └── 3.3V (Pin 17)
-    │  ┌───────────────┘ │ │ │ │ └──── GPIO22/RST (Pin 15)
-    │  │  ┌──────────────┘ │ │ └────── GPIO24/IRQ (Pin 18)  
-    │  │  │  ┌─────────────┘ └──────── GND (Pin 20)
-    │  │  │  │  ┌────────────────────── GPIO11/SCK (Pin 23)
-    │  │  │  │  │  ┌───────────────────── GPIO8/SDA (Pin 24)
-    │  │  │  │  │  │  ┌──────────────────── GPIO10/MOSI (Pin 19)
-    │  │  │  │  │  │  │  ┌─────────────────── GPIO9/MISO (Pin 21)
-    │  │  │  │  │  │  │  │
-    v  v  v  v  v  v  v  v
+    Raspberry Pi 2B v1.1 (BCM2836)
+    ┌───────────────────────────────┐
+    │  ●●●●●●●●●●●●●●●●●●●●  (1-20) │
+    │  ●●●●●●●●●●●●●●●●●●●● (21-40) │
+    └───┬───┬───┬───┬───┬───┬───┬───┘
+        │   │   │   │   │   │   │
+    Power Lines to Breadboard Rails
+        │   │   │   │   │   │   │
+        └───┼───┼───┼───┼───┼───┼──── Pin 17 (3.3V) → + Rail
+            │   │   │   │   │   └──── Pin 20 (GND)  → - Rail
+            │   │   │   │   └──────── Pin 15 (GPIO22/RST)
+            │   │   │   └──────────── Pin 18 (GPIO24/IRQ)
+            │   │   └──────────────── Pin 19 (GPIO10/MOSI)
+            │   └──────────────────── Pin 21 (GPIO9/MISO)
+            └──────────────────────── Pin 23 (GPIO11/SCK)
+                                   Pin 24 (GPIO8/SDA)
 
-Breadboard Top Section (RFID Module):
-  + Rail  a b c d e    f g h i j  - Rail
-     │    1 2 3 4 5    6 7 8 9 10    │
-  ●──┴────┬─┬─┬─┬─┬────┬─┬─┬─┬─┬────┴──●  ← 3.3V Rail
-     │    │ │ │ │ │    │ │ │ │ │       │
-  20 │    ● ● ● ● ●    ● ● ● ● ●       │
-  21 │    │ │ │ │ │    │ │ │ │ │       │
-  22 │    │ │ │ │ │    RC522 Module    │
-  23 │    │ │ │ │ │    SDA SCK MOSI    │
-  24 │    │ │ │ │ │    MISO IRQ GND    │
-  25 │    │ │ │ │ │    RST  3V3        │
-  26 │    │ │ │ │ │    │ │ │ │ │       │
-  27 │    ● ● ● ● ●    ● ● ● ● ●       │
-  28 │      │ │ │ │      │ │ │         │
-  29 │      │ │ │ │      │ │ │         │
-  30 │      │ │ │ └──────┘ │ └─────────┴──●  ← GND Rail
-     │      │ │ └──────────┘
-     │      │ └─────────── To RPi GPIO pins
-     │      └───────────── (see connection table)
-     │
+    Breadboard Top Section (Power Rails)
+    + Rail ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━● 3.3V
+    - Rail ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━● GND
 
-Breadboard Bottom Section (Hardware Interface):
-  35 │    ● ● ● ● ●    ● ● ● ● ●       │
-  36 │    │ │ │   │    │ │ │           │
-  37 │   [B1] │  LED1 LED2 LED3       │  ← Buttons & LEDs
-  38 │    │ │ │  220Ω 220Ω 220Ω       │
-  39 │    │ │ │   │    │   │           │
-  40 │    ● ● ●   ●    ●   ●           │
-  41 │    │ │     │    │   │           │
-  42 │    │ │     └────┴───┴───────────┴──●  ← GND Rail
-  43 │    │ └── To RPi GPIO2 (Read Button)
-  44 │    └──── To RPi GPIO3 (Write Button)
-     │
-  + Rail = 3.3V    - Rail = GND
+    Breadboard Main Section (RC522 Module)
+        a  b  c  d  e     f  g  h  i  j
+    10  ●  ●  ●  ●  ●     ●  ●  ●  ●  ●
+    11  ●  ●  ●  ●  ●     ●  ●  ●  ●  ●
+    12  ┌─────────────RC522 Module─────────────┐
+    13  │  SDA  SCK  MOSI  MISO IRQ  GND     │
+    14  │   ●    ●    ●     ●   ●    ●      │
+    15  │  RST  3V3                         │
+    16  │   ●    ●                          │
+    17  └───────────────────────────────────────┘
+    18  ●  ●  ●  ●  ●     ●  ●  ●  ●  ●
+    19  ●  ●  ●  ●  ●     ●  ●  ●  ●  ●
+
+    Connection Wires:
+    Row 14: SDA(a14) → GPIO8  (Pin 24)  Orange
+            SCK(b14) → GPIO11 (Pin 23)  Yellow
+            MOSI(c14)→ GPIO10 (Pin 19)  Blue
+            MISO(d14)→ GPIO9  (Pin 21)  Green
+            IRQ(e14) → GPIO24 (Pin 18)  Purple
+            GND(f14) → GND    (Pin 20)  Black
+    Row 16: RST(a16) → GPIO22 (Pin 15)  White
+            3V3(b16) → 3.3V   (Pin 17)  Red
+
+    Hardware Interface Section (Optional)
+        a  b  c  d  e     f  g  h  i  j
+    25  ●  ●  ●  ●  ●     ●  ●  ●  ●  ●
+    26 [BTN1] [BTN2]      ●  ●  ●  ●  ●
+    27  ●  ●  ●  ●  ●     ●  ●  ●  ●  ●
+    28  ●  ●  ●  ●  ●    LED LED LED ●  ●
+    29  ●  ●  ●  ●  ●    220Ω220Ω220Ω●  ●
+    30  ●  ●  ●  ●  ●     ●  ●  ●  ●  ●
 ```
 
 ## Step-by-Step Wiring Instructions
 
 ### Step 1: Prepare the Breadboard
 1. **Connect Power Rails**:
-   - Red wire: RPi Pin 17 (3.3V) → Breadboard + rail
-   - Black wire: RPi Pin 20 (GND) → Breadboard - rail
-   
+   - **Red wire**: RPi Pin 17 (3.3V) → Breadboard positive (+) rail
+   - **Black wire**: RPi Pin 20 (GND) → Breadboard negative (-) rail
+
 2. **Verify Power**:
-   - Use multimeter to confirm 3.3V between rails
-   - ⚠️ **NEVER connect 5V to RC522 - it will damage the module!**
+   ```bash
+   # Use multimeter to verify 3.3V between rails
+   # Should read approximately 3.3V ± 0.1V
+   ```
 
-### Step 2: Install RFID-RC522 Module
-1. **Mount Module** on breadboard (rows 22-27 recommended)
-2. **Connect Power**:
-   - 3.3V pin → + rail (red wire)
-   - GND pin → - rail (black wire)
-3. **Connect SPI Interface**:
-   - SDA → GPIO8 (Pin 24) - Orange wire
-   - SCK → GPIO11 (Pin 23) - Yellow wire  
-   - MOSI → GPIO10 (Pin 19) - Blue wire
-   - MISO → GPIO9 (Pin 21) - Green wire
-4. **Connect Control Pins**:
-   - RST → GPIO22 (Pin 15) - White wire
-   - IRQ → GPIO24 (Pin 18) - Purple wire (optional)
+### Step 2: Install RC522 Module
+1. **Mount the RC522** on breadboard rows 12-17 (recommended)
 
-### Step 3: Install Hardware Interface (Optional)
+2. **Connect Power First**:
+   - RC522 3.3V pin → + rail (red wire)
+   - RC522 GND pin → - rail (black wire)
 
-#### Buttons:
+3. **Connect SPI Interface** (in this order):
+   - **SDA** (RC522) → **Pin 24** (GPIO8) - Orange wire
+   - **SCK** (RC522) → **Pin 23** (GPIO11) - Yellow wire
+   - **MOSI** (RC522) → **Pin 19** (GPIO10) - Blue wire
+   - **MISO** (RC522) → **Pin 21** (GPIO9) - Green wire
+
+4. **Connect Control Signals**:
+   - **RST** (RC522) → **Pin 15** (GPIO22) - White wire
+   - **IRQ** (RC522) → **Pin 18** (GPIO24) - Purple wire (optional)
+
+### Step 3: Hardware Interface (Optional)
+
+#### Install Buttons:
 1. **Read Button**:
-   - One terminal → GPIO2 (Pin 3) - Gray wire
-   - Other terminal → GND rail - Black wire
-   
+   - One terminal → **Pin 3** (GPIO2) - Gray wire
+   - Other terminal → **Ground rail** - Black wire
+
 2. **Write Button**:
-   - One terminal → GPIO3 (Pin 5) - Brown wire
-   - Other terminal → GND rail - Black wire
+   - One terminal → **Pin 5** (GPIO3) - Brown wire
+   - Other terminal → **Ground rail** - Black wire
 
-#### LEDs (with current limiting resistors):
+#### Install LEDs:
 1. **Ready LED (Green)**:
-   - Anode (+, longer leg) → 220Ω resistor → GPIO27 (Pin 13)
-   - Cathode (-, shorter leg) → GND rail
-   
-2. **Status LED (Blue/White)**:
-   - Anode (+) → 220Ω resistor → GPIO4 (Pin 7)
-   - Cathode (-) → GND rail
-   
+   - Anode (+) → 220Ω resistor → **Pin 13** (GPIO27)
+   - Cathode (-) → Ground rail
+
+2. **Status LED (Blue)**:
+   - Anode (+) → 220Ω resistor → **Pin 7** (GPIO4)
+   - Cathode (-) → Ground rail
+
 3. **Error LED (Red)**:
-   - Anode (+) → 220Ω resistor → GPIO17 (Pin 11)
-   - Cathode (-) → GND rail
+   - Anode (+) → 220Ω resistor → **Pin 11** (GPIO17)
+   - Cathode (-) → Ground rail
 
-### Step 4: Double-Check Connections
-Use the following checklist:
+### Step 4: Final Verification
 
-- [ ] 3.3V rail connected to RPi Pin 17
-- [ ] GND rail connected to RPi Pin 20  
+**Physical Inspection Checklist**:
+- [ ] 3.3V rail connected to RPi Pin 17 (**NOT Pin 2 or 4!**)
+- [ ] Ground rail connected to RPi Pin 20
 - [ ] RC522 3.3V connected to + rail
 - [ ] RC522 GND connected to - rail
 - [ ] All 6 SPI/control wires connected correctly
-- [ ] All LEDs have current limiting resistors
-- [ ] Button connections verified
+- [ ] All LEDs have 220Ω current limiting resistors
 - [ ] No loose connections
 - [ ] No short circuits between + and - rails
+- [ ] All connections firmly seated
 
-## Testing Your Wiring
+## BCM2836-Specific Configuration
 
-### 1. Basic Power Test
+### Enable SPI Interface
 ```bash
-# Check SPI interface is available
+# Method 1: Using raspi-config
+sudo raspi-config
+# Navigate: Interface Options → SPI → Enable
+
+# Method 2: Direct configuration
+echo "dtparam=spi=on" | sudo tee -a /boot/config.txt
+
+# Reboot to apply changes
+sudo reboot
+```
+
+### Verify SPI Setup
+```bash
+# Check SPI devices
 ls -la /dev/spi*
-# Should show: /dev/spidev0.0
+# Expected output: /dev/spidev0.0  /dev/spidev0.1
 
-# Test GPIO access
-sudo gpio readall  # If gpio utility is installed
+# Check kernel modules
+lsmod | grep spi
+# Expected: spi_bcm2835
+
+# Check device tree
+ls /proc/device-tree/soc/spi@7e204000/
 ```
 
-### 2. LED Test (Hardware Mode)
+### Configure User Permissions
 ```bash
-# Test LEDs manually (GPIO pin numbers)
-echo 27 | sudo tee /sys/class/gpio/export
+# Add user to required groups
+sudo usermod -a -G gpio,spi pi
+
+# Verify group membership
+groups pi
+# Should include: gpio spi
+
+# Reboot for group changes to take effect
+sudo reboot
+```
+
+## Testing Connections
+
+### 1. Power Test
+```bash
+# Test 3.3V power supply
+vcgencmd measure_volts core
+# Should show approximately 1.2V (core voltage)
+
+# Check 3.3V rail with multimeter
+# Should read 3.3V ± 0.1V between + and - rails
+```
+
+### 2. SPI Communication Test
+```bash
+# Test SPI loopback (disconnect RC522 first!)
+# Temporarily connect MOSI (Pin 19) to MISO (Pin 21)
+python3 << 'EOF'
+import spidev
+try:
+    spi = spidev.SpiDev()
+    spi.open(0, 0)
+    spi.max_speed_hz = 500000
+    result = spi.xfer2([0xAA, 0x55, 0xFF, 0x00])
+    print(f"SPI loopback test: {[hex(x) for x in result]}")
+    if result == [0xAA, 0x55, 0xFF, 0x00]:
+        print("✓ SPI communication working")
+    else:
+        print("✗ SPI communication failed")
+    spi.close()
+except Exception as e:
+    print(f"SPI test failed: {e}")
+EOF
+# Remember to disconnect the loopback wire after testing!
+```
+
+### 3. GPIO Test (LEDs)
+```bash
+# Test LED functionality
+# Export GPIO pins
+echo 27 | sudo tee /sys/class/gpio/export  # Ready LED
+echo 4  | sudo tee /sys/class/gpio/export  # Status LED
+echo 17 | sudo tee /sys/class/gpio/export  # Error LED
+
+# Set as outputs
 echo out | sudo tee /sys/class/gpio/gpio27/direction
-echo 1 | sudo tee /sys/class/gpio/gpio27/value    # LED on
-echo 0 | sudo tee /sys/class/gpio/gpio27/value    # LED off
+echo out | sudo tee /sys/class/gpio/gpio4/direction
+echo out | sudo tee /sys/class/gpio/gpio17/direction
+
+# Test LEDs (should light up)
+echo 1 | sudo tee /sys/class/gpio/gpio27/value  # Ready LED ON
+sleep 1
+echo 1 | sudo tee /sys/class/gpio/gpio4/value   # Status LED ON
+sleep 1
+echo 1 | sudo tee /sys/class/gpio/gpio17/value  # Error LED ON
+sleep 1
+
+# Turn all LEDs OFF
+echo 0 | sudo tee /sys/class/gpio/gpio27/value
+echo 0 | sudo tee /sys/class/gpio/gpio4/value
+echo 0 | sudo tee /sys/class/gpio/gpio17/value
+
+# Clean up
+echo 27 | sudo tee /sys/class/gpio/unexport
+echo 4  | sudo tee /sys/class/gpio/unexport
+echo 17 | sudo tee /sys/class/gpio/unexport
 ```
 
-### 3. Button Test
+### 4. Button Test
 ```bash
-# Test button reading (GPIO pin numbers)
-echo 2 | sudo tee /sys/class/gpio/export
+# Test button functionality
+echo 2 | sudo tee /sys/class/gpio/export   # Read button
+echo 3 | sudo tee /sys/class/gpio/export   # Write button
+
+# Set as inputs with pull-up
 echo in | sudo tee /sys/class/gpio/gpio2/direction
-cat /sys/class/gpio/gpio2/value  # Should show 1 (released) or 0 (pressed)
+echo in | sudo tee /sys/class/gpio/gpio3/direction
+
+# Test buttons (should show 1 when released, 0 when pressed)
+echo "Press and release the READ button..."
+for i in {1..10}; do
+    echo "GPIO2 (Read): $(cat /sys/class/gpio/gpio2/value)"
+    sleep 1
+done
+
+echo "Press and release the WRITE button..."
+for i in {1..10}; do
+    echo "GPIO3 (Write): $(cat /sys/class/gpio/gpio3/value)"
+    sleep 1
+done
+
+# Clean up
+echo 2 | sudo tee /sys/class/gpio/unexport
+echo 3 | sudo tee /sys/class/gpio/unexport
 ```
 
-### 4. RFID Module Test
+### 5. RC522 Communication Test
 ```bash
-# Run the application to test RFID
-sudo ./rfid-tool -web -port=8080
-# Check logs for "MFRC522 version: 0x92" or similar
+# After connecting RC522, test with the application
+sudo /opt/rfid-tool/rfid-tool -web -port=8080
+
+# Check logs for successful initialization
+sudo journalctl -u rfid-tool-web -n 20
+
+# Look for messages like:
+# "MFRC522 version: 0x92" or "RC522 initialized successfully"
 ```
 
-## Common Wiring Issues
+## Troubleshooting Guide
 
-### Problem: "MFRC522 not found"
-- **Check**: 3.3V power connection (NOT 5V!)
-- **Check**: All SPI connections (SDA, SCK, MOSI, MISO)
-- **Check**: Reset pin connection
-- **Verify**: SPI is enabled in raspi-config
+### Common Issues and Solutions
 
-### Problem: "Permission denied" accessing GPIO
-- **Check**: User is in gpio group: `groups pi`
-- **Run**: `sudo usermod -a -G gpio,spi pi`
-- **Reboot** after adding to groups
+#### 1. "MFRC522 not found" Error
+**Symptoms**: Application reports RC522 not detected
+**Solutions**:
+```bash
+# Verify SPI is enabled
+ls /dev/spi*  # Should show spidev0.0
 
-### Problem: LEDs not working
-- **Check**: 220Ω resistors are in series with LED anodes
-- **Check**: LED polarity (longer leg = anode/+)
-- **Check**: Connection to correct GPIO pins
-- **Test**: Manual GPIO control (see testing section above)
+# Check wiring - most common issues:
+# - Using 5V instead of 3.3V (fatal to RC522!)
+# - Loose connections
+# - Wrong GPIO pin assignments
+# - SDA and SCK swapped
 
-### Problem: Buttons not responsive
-- **Check**: One terminal to GPIO, other to GND
-- **Check**: No external pull-up conflicts
-- **Verify**: Button is normally-open type
-- **Test**: Manual GPIO reading (see testing section above)
+# Test SPI with oscilloscope or logic analyzer if available
+```
 
-## Breadboard Layout Tips
+#### 2. Permission Denied Errors
+**Symptoms**: "Permission denied" accessing GPIO/SPI
+**Solutions**:
+```bash
+# Check user groups
+groups $USER
 
-1. **Organization**: Keep power connections on one side, signal connections on the other
-2. **Color Coding**: Use consistent colors (red=power, black=ground, etc.)
-3. **Short Wires**: Use shortest practical wire lengths to reduce interference
-4. **Secure Connections**: Ensure all connections are fully inserted
-5. **Documentation**: Take a photo of your final wiring for reference
+# Add to required groups
+sudo usermod -a -G gpio,spi $USER
 
-## Safety Notes
+# Check file permissions
+ls -la /dev/spidev0.0
+ls -la /dev/gpiomem
 
-- **Never exceed 3.3V** on RC522 module pins
-- **Always disconnect power** before making wiring changes
-- **Use appropriate current limiting resistors** for LEDs
+# Reboot after group changes
+sudo reboot
+```
+
+#### 3. Intermittent Card Detection
+**Symptoms**: Cards detected sometimes, not always
+**Solutions**:
+- Reduce SPI speed in config.json (try 250kHz)
+- Check antenna connections on RC522
+- Ensure stable 3.3V power supply
+- Try different card positions
+- Check for interference from other devices
+
+#### 4. LEDs Not Working
+**Symptoms**: LEDs don't light up or behave incorrectly
+**Solutions**:
+```bash
+# Check LED polarity (longer leg = anode/+)
+# Verify 220Ω resistors are in series with anodes
+# Test LED with multimeter in diode test mode
+# Check GPIO pin assignments in config.json
+```
+
+#### 5. High CPU/Temperature on BCM2836
+**Symptoms**: System running hot or slow
+**Solutions**:
+```bash
+# Check CPU temperature
+vcgencmd measure_temp
+
+# Monitor CPU frequency
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+
+# If temperature > 70°C, consider:
+# - Adding heat sink
+# - Improving case ventilation
+# - Reducing SPI polling frequency
+# - Using low-power configuration
+```
+
+## BCM2836 Performance Optimization
+
+### SPI Speed Tuning for BCM2836
+```json
+{
+  "rfid": {
+    "spi_speed": 500000    // Conservative, reliable
+    // "spi_speed": 1000000   // Higher performance
+    // "spi_speed": 250000    // Ultra-conservative for noisy environments
+  }
+}
+```
+
+### Memory Management (1GB System)
+- Web interface: ~45MB RAM typical usage
+- Hardware interface: ~25MB RAM typical usage
+- Leave 200-300MB free for system operations
+- Monitor with `free -h` and `htop`
+
+### Temperature Monitoring
+```bash
+# Create monitoring script
+cat > /home/pi/temp_monitor.sh << 'EOF'
+#!/bin/bash
+while true; do
+    TEMP=$(vcgencmd measure_temp | cut -d= -f2 | cut -d\' -f1)
+    echo "$(date): CPU Temperature: ${TEMP}°C"
+    if (( $(echo "$TEMP > 75" | bc -l) )); then
+        echo "WARNING: High temperature detected!"
+    fi
+    sleep 60
+done
+EOF
+
+chmod +x /home/pi/temp_monitor.sh
+# Run: ./temp_monitor.sh
+```
+
+## Advanced Configuration
+
+### Custom SPI Settings
+```bash
+# Add to /boot/config.txt for advanced SPI configuration
+echo "dtparam=spi=on" | sudo tee -a /boot/config.txt
+echo "dtoverlay=spi0-1cs" | sudo tee -a /boot/config.txt  # Single CS line
+echo "core_freq=250" | sudo tee -a /boot/config.txt       # Stable core freq
+```
+
+### GPIO Drive Strength (if needed)
+```bash
+# Increase drive strength for long wires (2-16mA available)
+echo "gpio=8,9,10,11=op,dh"  # High drive strength for SPI pins
+```
+
+### Real-time Priority (Hardware Mode)
+```bash
+# Enable real-time scheduling for hardware interface
+sudo systemctl edit rfid-tool-hw
+
+# Add:
+# [Service]
+# Nice=-10
+# IOSchedulingClass=1
+# IOSchedulingPriority=1
+```
+
+## Safety and Best Practices
+
+### Electrical Safety
+- **Always power off** before making connections
+- **Never exceed 3.3V** on RC522 pins
+- **Use proper current limiting** for LEDs (220Ω minimum)
 - **Avoid short circuits** between power rails
-- **Handle components carefully** - static electricity can damage them
+- **Handle components carefully** (static sensitive)
 
-## Troubleshooting Checklist
+### Mechanical Considerations
+- **Secure connections** - use quality jumper wires
+- **Strain relief** - avoid pulling on wires
+- **Proper spacing** - prevent accidental shorts
+- **Heat dissipation** - ensure adequate cooling
+- **Vibration resistance** - secure breadboard in case
 
-Before asking for help, verify:
+### Documentation
+- **Label connections** with tape/markers
+- **Take photos** of working configurations
+- **Keep wiring diagrams** updated
+- **Document any modifications**
 
-- [ ] SPI enabled: `sudo raspi-config`
-- [ ] Correct voltage: 3.3V (measured with multimeter)
-- [ ] All connections match the tables above
-- [ ] No loose or intermittent connections
-- [ ] LEDs have current limiting resistors
-- [ ] No short circuits
-- [ ] Software installed and configured correctly
-- [ ] Logs checked for specific error messages
+## Final Checklist
 
-## Alternative Layouts
+Before powering up your system:
 
-### Compact Layout (RC522 only)
-If you only need the RFID functionality without buttons/LEDs, you can use a smaller breadboard or even direct connections:
+- [ ] **Power Supply**: 3.3V to RC522, NOT 5V
+- [ ] **SPI Connections**: All 4 SPI pins connected correctly
+- [ ] **Control Signals**: RST and optionally IRQ connected
+- [ ] **Ground**: Common ground between RPi and RC522
+- [ ] **SPI Enabled**: `dtparam=spi=on` in /boot/config.txt
+- [ ] **User Groups**: pi user in gpio and spi groups
+- [ ] **No Shorts**: Verified no short circuits
+- [ ] **Secure Connections**: All wires firmly connected
+- [ ] **LED Resistors**: 220Ω resistors in series with all LEDs
+- [ ] **Button Pull-ups**: Using internal pull-ups (GPIO2/3)
 
-```
-RPi Pin → RC522 Pin (Direct Connection)
-17 (3.3V) → 3.3V
-20 (GND)  → GND
-15 (GPIO22) → RST
-18 (GPIO24) → IRQ
-19 (GPIO10) → MOSI
-21 (GPIO9)  → MISO
-23 (GPIO11) → SCK
-24 (GPIO8)  → SDA
-```
+Your Raspberry Pi 2B v1.1 RFID system should now be ready for operation!
 
-### Full Feature Layout
-For the complete experience with both interfaces, use the full breadboard layout shown in the main diagram above.
+---
 
-This wiring guide should provide everything you need to successfully connect your RFID-RC522 module to your Raspberry Pi 2B. Take your time with the connections and double-check everything before powering up!
+**Hardware Target**: Raspberry Pi 2B v1.1 (BCM2836, ARM Cortex-A7)  
+**Optimized for**: 1GB LPDDR2, 900MHz quad-core, 3.3V GPIO  
+**Tested with**: Raspberry Pi OS Bullseye/Bookworm, Kernel 5.4+
