@@ -1,3 +1,5 @@
+// Package server provides web interface functionality for the RFID Tool application.
+// It handles HTTP requests for reading, writing, and managing RFID cards through a web interface.
 package server
 
 import (
@@ -28,33 +30,34 @@ type WebServer struct {
 
 // CardData represents card data for JSON responses
 type CardData struct {
+	Data   map[string]string `json:"data,omitempty"`
 	UID    string            `json:"uid"`
 	Type   string            `json:"type"`
 	Size   int               `json:"size"`
 	Blocks int               `json:"blocks"`
-	Data   map[string]string `json:"data,omitempty"`
 }
 
 // APIResponse represents a standard API response
 type APIResponse struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+	Message string      `json:"message"`
+	Error   string      `json:"error,omitempty"`
+	Success bool        `json:"success"`
 }
 
 // WriteRequest represents a write request
 type WriteRequest struct {
-	Block int    `json:"block"`
 	Data  string `json:"data"`
+	Block int    `json:"block"`
 }
 
 // NewWebServer creates a new web server instance
-func NewWebServer(port string, reader *rfid.Reader, cfg *config.Config) *WebServer {
+func NewWebServer(_ string, reader *rfid.Reader, cfg *config.Config) *WebServer {
 	return &WebServer{
 		reader: reader,
 		config: cfg,
 		upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
+			CheckOrigin: func(_ *http.Request) bool {
 				return true // Allow all origins for development
 			},
 		},
@@ -97,7 +100,8 @@ func (ws *WebServer) Start() error {
 // Stop stops the web server
 func (ws *WebServer) Stop() error {
 	if ws.server != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		const serverTimeout = 5 * time.Second
+		ctx, cancel := context.WithTimeout(context.Background(), serverTimeout)
 		defer cancel()
 		return ws.server.Shutdown(ctx)
 	}
@@ -121,7 +125,7 @@ func (ws *WebServer) corsMiddleware(next http.Handler) http.Handler {
 }
 
 // handleIndex serves the main page
-func (ws *WebServer) handleIndex(w http.ResponseWriter, r *http.Request) {
+func (ws *WebServer) handleIndex(w http.ResponseWriter, _ *http.Request) {
 	tmpl := `
 <!DOCTYPE html>
 <html lang="en">
@@ -469,11 +473,11 @@ func (ws *WebServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 </html>`
 
 	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(tmpl))
+	_, _ = w.Write([]byte(tmpl))
 }
 
 // handleScan handles card scanning requests
-func (ws *WebServer) handleScan(w http.ResponseWriter, r *http.Request) {
+func (ws *WebServer) handleScan(w http.ResponseWriter, _ *http.Request) {
 	card, err := ws.reader.ScanForCard()
 	if err != nil {
 		ws.writeJSON(w, APIResponse{
@@ -498,7 +502,7 @@ func (ws *WebServer) handleScan(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleRead handles reading all card data
-func (ws *WebServer) handleRead(w http.ResponseWriter, r *http.Request) {
+func (ws *WebServer) handleRead(w http.ResponseWriter, _ *http.Request) {
 	if ws.reader.GetLastCard() == nil {
 		ws.writeJSON(w, APIResponse{
 			Success: false,
@@ -635,7 +639,7 @@ func (ws *WebServer) handleWrite(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleCardInfo handles getting current card information
-func (ws *WebServer) handleCardInfo(w http.ResponseWriter, r *http.Request) {
+func (ws *WebServer) handleCardInfo(w http.ResponseWriter, _ *http.Request) {
 	card := ws.reader.GetLastCard()
 	if card == nil {
 		ws.writeJSON(w, APIResponse{
@@ -665,7 +669,9 @@ func (ws *WebServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		log.Printf("WebSocket upgrade error: %v", err)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
 	log.Println("WebSocket client connected")
 
@@ -726,5 +732,5 @@ func (ws *WebServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 // writeJSON writes a JSON response
 func (ws *WebServer) writeJSON(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(data)
 }

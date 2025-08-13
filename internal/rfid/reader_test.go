@@ -90,22 +90,22 @@ func TestRegisterOperations(t *testing.T) {
 	if VersionReg != 0x37 {
 		t.Errorf("Expected VersionReg 0x37, got 0x%02x", VersionReg)
 	}
-	if PICC_REQIDL != 0x26 {
-		t.Errorf("Expected PICC_REQIDL 0x26, got 0x%02x", PICC_REQIDL)
+	if PICCReqIDL != 0x26 {
+		t.Errorf("Expected PICCReqIDL 0x26, got 0x%02x", PICCReqIDL)
 	}
-	if PICC_AUTHENT1A != 0x60 {
-		t.Errorf("Expected PICC_AUTHENT1A 0x60, got 0x%02x", PICC_AUTHENT1A)
+	if PICCAuthent1A != 0x60 {
+		t.Errorf("Expected PICCAuthent1A 0x60, got 0x%02x", PICCAuthent1A)
 	}
 }
 
 func TestStatusCodes(t *testing.T) {
-	if MI_OK != 0 {
-		t.Errorf("Expected MI_OK 0, got %d", MI_OK)
+	if MIOK != 0 {
+		t.Errorf("Expected MIOK 0, got %d", MIOK)
 	}
-	if MI_NOTAGERR != 1 {
-		t.Errorf("Expected MI_NOTAGERR 1, got %d", MI_NOTAGERR)
+	if MINoTagErr != 1 {
+		t.Errorf("Expected MINoTagErr 1, got %d", MINoTagErr)
 	}
-	if MI_ERR != 2 {
-		t.Errorf("Expected MI_ERR 2, got %d", MI_ERR)
+	if MIErr != 2 {
+		t.Errorf("Expected MIErr 2, got %d", MIErr)
 	}
 }

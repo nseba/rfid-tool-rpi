@@ -1,3 +1,5 @@
+// Package rfid provides RFID card reading and writing functionality.
+// It implements communication with RC522 RFID modules using SPI interface.
 package rfid
 
 import (
@@ -76,58 +78,65 @@ const (
 	TestADCReg      = 0x3B
 )
 
+// MaxLen defines the maximum length for FIFO operations
+const MaxLen = 16
+
 // MFRC522 commands
 const (
-	PCD_IDLE       = 0x00
-	PCD_AUTHENT    = 0x0E
-	PCD_RECEIVE    = 0x08
-	PCD_TRANSMIT   = 0x04
-	PCD_TRANSCEIVE = 0x0C
-	PCD_RESETPHASE = 0x0F
-	PCD_CALCCRC    = 0x03
+	PCDIdle       = 0x00
+	PCDAuthent    = 0x0E
+	PCDReceive    = 0x08
+	PCDTransmit   = 0x04
+	PCDTransceive = 0x0C
+	PCDResetPhase = 0x0F
+	PCDCalcCRC    = 0x03
 )
 
 // PICC commands
 const (
-	PICC_REQIDL    = 0x26
-	PICC_REQALL    = 0x52
-	PICC_ANTICOLL  = 0x93
-	PICC_SElECTTAG = 0x93
-	PICC_AUTHENT1A = 0x60
-	PICC_AUTHENT1B = 0x61
-	PICC_READ      = 0x30
-	PICC_WRITE     = 0xA0
-	PICC_DECREMENT = 0xC0
-	PICC_INCREMENT = 0xC1
-	PICC_RESTORE   = 0xC2
-	PICC_TRANSFER  = 0xB0
-	PICC_HALT      = 0x50
+	PICCReqIDL    = 0x26
+	PICCReqAll    = 0x52
+	PICCAntiColl  = 0x93
+	PICCSelectTag = 0x93
+	PICCAuthent1A = 0x60
+	PICCAuthent1B = 0x61
+	PICCRead      = 0x30
+	PICCWrite     = 0xA0
+	PICCDecrement = 0xC0
+	PICCIncrement = 0xC1
+	PICCRestore   = 0xC2
+	PICCTransfer  = 0xB0
+	PICCHalt      = 0x50
 )
 
 // Status codes
 const (
-	MI_OK       = 0
-	MI_NOTAGERR = 1
-	MI_ERR      = 2
+	MIOK       = 0
+	MINoTagErr = 1
+	MIErr      = 2
 )
 
 // CardType represents different card types
 type CardType string
 
 const (
+	// CardTypeMifare1K represents a MIFARE Classic 1K card type
 	CardTypeMifare1K CardType = "MIFARE 1K"
+	// CardTypeMifare4K represents a MIFARE Classic 4K card type
 	CardTypeMifare4K CardType = "MIFARE 4K"
+	// CardTypeMifareUL represents a MIFARE Ultralight card type
 	CardTypeMifareUL CardType = "MIFARE Ultralight"
-	CardTypeUnknown  CardType = "Unknown"
+	// CardTypeUnknown represents an unknown card type
+	CardTypeUnknown CardType = "Unknown"
 )
 
 // Card represents an RFID card
 type Card struct {
-	UID       []byte
 	Type      CardType
+	UID       []byte
+	SectorKey []byte
 	Size      int
 	Blocks    int
-	SectorKey []byte
 }
 
 // String returns a string representation of the card
@@ -137,12 +146,12 @@ func (c *Card) String() string {
 
 // Reader represents an RFID reader
 type Reader struct {
-	spiPort  spi.Port
 	spiConn  spi.Conn
 	resetPin gpio.PinIO
 	irqPin   gpio.PinIO
-	config   config.RFIDConfig
 	lastCard *Card
+	spiPort  spi.Port
+	config   config.RFIDConfig
 }
 
 // NewReader creates a new RFID reader instance
@@ -215,7 +224,7 @@ func (r *Reader) init() error {
 	time.Sleep(50 * time.Millisecond)
 
 	// Soft reset
-	r.writeRegister(CommandReg, PCD_RESETPHASE)
+	r.writeRegister(CommandReg, PCDResetPhase)
 	time.Sleep(50 * time.Millisecond)
 
 	// Configure timer
@@ -246,14 +255,14 @@ func (r *Reader) init() error {
 func (r *Reader) readRegister(reg byte) byte {
 	write := []byte{(reg << 1) | 0x80, 0x00}
 	read := make([]byte, 2)
-	r.spiConn.Tx(write, read)
+	_ = r.spiConn.Tx(write, read)
 	return read[1]
 }
 
 // writeRegister writes a single register to the MFRC522
 func (r *Reader) writeRegister(reg, value byte) {
 	write := []byte{reg << 1, value}
-	r.spiConn.Tx(write, nil)
+	_ = r.spiConn.Tx(write, nil)
 }
 
 // setRegisterBitMask sets specific bits in a register
@@ -297,14 +306,14 @@ func (r *Reader) toCard(uid []byte) *Card {
 // ScanForCard scans for a card and returns it if found
 func (r *Reader) ScanForCard() (*Card, error) {
 	// Request card
-	status, _ := r.request(PICC_REQIDL)
-	if status != MI_OK {
+	status, _ := r.request(PICCReqIDL)
+	if status != MIOK {
 		return nil, fmt.Errorf("no card detected")
 	}
 
 	// Anti-collision
 	status, uid := r.antiCollision()
-	if status != MI_OK {
+	if status != MIOK {
 		return nil, fmt.Errorf("anti-collision failed")
 	}
 
@@ -322,14 +331,14 @@ func (r *Reader) ReadBlock(block int) ([]byte, error) {
 	}
 
 	// Authenticate
-	status := r.authenticate(PICC_AUTHENT1A, block, r.lastCard.SectorKey, r.lastCard.UID)
-	if status != MI_OK {
+	status := r.authenticate(PICCAuthent1A, block, r.lastCard.SectorKey, r.lastCard.UID)
+	if status != MIOK {
 		return nil, fmt.Errorf("authentication failed")
 	}
 
 	// Read block
 	status, data := r.read(block)
-	if status != MI_OK {
+	if status != MIOK {
 		return nil, fmt.Errorf("read failed")
 	}
 
@@ -347,14 +356,14 @@ func (r *Reader) WriteBlock(block int, data []byte) error {
 	}
 
 	// Authenticate
-	status := r.authenticate(PICC_AUTHENT1A, block, r.lastCard.SectorKey, r.lastCard.UID)
-	if status != MI_OK {
+	status := r.authenticate(PICCAuthent1A, block, r.lastCard.SectorKey, r.lastCard.UID)
+	if status != MIOK {
 		return fmt.Errorf("authentication failed")
 	}
 
 	// Write block
 	status = r.write(block, data)
-	if status != MI_OK {
+	if status != MIOK {
 		return fmt.Errorf("write failed")
 	}
 
@@ -394,32 +403,32 @@ func (r *Reader) request(mode byte) (int, []byte) {
 	r.writeRegister(BitFramingReg, 0x07)
 
 	tagType := []byte{mode}
-	status, backData, _ := r.toCard2(PCD_TRANSCEIVE, tagType)
+	status, backData := r.toCard2(PCDTransceive, tagType)
 
-	if status != MI_OK || len(backData) != 2 {
-		return MI_ERR, nil
+	if status != MIOK || len(backData) != 2 {
+		return MIErr, nil
 	}
 
-	return MI_OK, backData
+	return MIOK, backData
 }
 
 func (r *Reader) antiCollision() (int, []byte) {
 	r.writeRegister(BitFramingReg, 0x00)
 
-	serNum := []byte{PICC_ANTICOLL, 0x20}
-	status, backData, _ := r.toCard2(PCD_TRANSCEIVE, serNum)
+	serNum := []byte{PICCAntiColl, 0x20}
+	status, backData := r.toCard2(PCDTransceive, serNum)
 
-	if status == MI_OK && len(backData) == 5 {
+	if status == MIOK && len(backData) == 5 {
 		serNumCheck := byte(0)
 		for i := 0; i < 4; i++ {
 			serNumCheck ^= backData[i]
 		}
 		if serNumCheck != backData[4] {
-			return MI_ERR, nil
+			return MIErr, nil
 		}
 	}
 
-	return status, backData[:4]
+	return status, backData
 }
 
 func (r *Reader) authenticate(authMode byte, blockAddr int, sectorKey, serNum []byte) int {
@@ -427,54 +436,53 @@ func (r *Reader) authenticate(authMode byte, blockAddr int, sectorKey, serNum []
 	buff = append(buff, sectorKey...)
 	buff = append(buff, serNum...)
 
-	status, _, _ := r.toCard2(PCD_AUTHENT, buff)
+	status, _ := r.toCard2(PCDAuthent, buff)
 
-	if status != MI_OK || (r.readRegister(Status2Reg)&0x08) == 0 {
-		return MI_ERR
+	if status != MIOK || (r.readRegister(Status2Reg)&0x08) == 0 {
+		return MIErr
 	}
 
-	return MI_OK
+	return MIOK
 }
 
 func (r *Reader) read(blockAddr int) (int, []byte) {
-	recvData := []byte{PICC_READ, byte(blockAddr)}
-	status, backData, _ := r.toCard2(PCD_TRANSCEIVE, recvData)
+	recvData := []byte{PICCRead, byte(blockAddr)}
+	status, backData := r.toCard2(PCDTransceive, recvData)
 
-	if status != MI_OK || len(backData) != 16 {
-		return MI_ERR, nil
+	if status != MIOK || len(backData) != 16 {
+		return MIErr, nil
 	}
 
-	return MI_OK, backData
+	return MIOK, backData
 }
 
 func (r *Reader) write(blockAddr int, writeData []byte) int {
-	buff := []byte{PICC_WRITE, byte(blockAddr)}
-	status, _, _ := r.toCard2(PCD_TRANSCEIVE, buff)
+	buff := []byte{PICCWrite, byte(blockAddr)}
+	status, _ := r.toCard2(PCDTransceive, buff)
 
-	if status != MI_OK || (r.readRegister(Status2Reg)&0x08) == 0 {
-		return MI_ERR
+	if status != MIOK || (r.readRegister(Status2Reg)&0x08) == 0 {
+		return MIErr
 	}
 
-	status, _, _ = r.toCard2(PCD_TRANSCEIVE, writeData)
+	status, _ = r.toCard2(PCDTransceive, writeData)
 
-	if status != MI_OK || (r.readRegister(Status2Reg)&0x08) == 0 {
-		return MI_ERR
+	if status != MIOK || (r.readRegister(Status2Reg)&0x08) == 0 {
+		return MIErr
 	}
 
-	return MI_OK
+	return MIOK
 }
 
-func (r *Reader) toCard2(command byte, sendData []byte) (int, []byte, int) {
+func (r *Reader) toCard2(command byte, sendData []byte) (int, []byte) {
 	var backData []byte
-	var backLen int
 	irqEn := byte(0x00)
 	waitIRq := byte(0x00)
 
 	switch command {
-	case PCD_AUTHENT:
+	case PCDAuthent:
 		irqEn = 0x12
 		waitIRq = 0x10
-	case PCD_TRANSCEIVE:
+	case PCDTransceive:
 		irqEn = 0x77
 		waitIRq = 0x30
 	}
@@ -483,7 +491,7 @@ func (r *Reader) toCard2(command byte, sendData []byte) (int, []byte, int) {
 	r.clearRegisterBitMask(ComIrqReg, 0x80)
 	r.setRegisterBitMask(FIFOLevelReg, 0x80)
 
-	r.writeRegister(CommandReg, PCD_IDLE)
+	r.writeRegister(CommandReg, PCDIdle)
 
 	for _, data := range sendData {
 		r.writeRegister(FIFODataReg, data)
@@ -491,7 +499,7 @@ func (r *Reader) toCard2(command byte, sendData []byte) (int, []byte, int) {
 
 	r.writeRegister(CommandReg, command)
 
-	if command == PCD_TRANSCEIVE {
+	if command == PCDTransceive {
 		r.setRegisterBitMask(BitFramingReg, 0x80)
 	}
 
@@ -501,7 +509,7 @@ func (r *Reader) toCard2(command byte, sendData []byte) (int, []byte, int) {
 		n := r.readRegister(ComIrqReg)
 		i--
 		if n&0x01 != 0 {
-			return MI_ERR, nil, 0
+			return MIErr, nil
 		}
 		if n&waitIRq != 0 {
 			break
@@ -511,40 +519,33 @@ func (r *Reader) toCard2(command byte, sendData []byte) (int, []byte, int) {
 	r.clearRegisterBitMask(BitFramingReg, 0x80)
 
 	if i == 0 {
-		return MI_ERR, nil, 0
+		return MIErr, nil
 	}
 
-	error := r.readRegister(ErrorReg)
-	if error&0x1B != 0 {
-		return MI_ERR, nil, 0
+	errorReg := r.readRegister(ErrorReg)
+	if errorReg&0x1B != 0 {
+		return MIErr, nil
 	}
 
-	status := MI_OK
+	status := MIOK
 
-	if command == PCD_TRANSCEIVE {
+	if command == PCDTransceive {
 		n := r.readRegister(FIFOLevelReg)
-		lastBits := r.readRegister(ControlReg) & 0x07
-
-		if lastBits != 0 {
-			backLen = (int(n)-1)*8 + int(lastBits)
-		} else {
-			backLen = int(n) * 8
-		}
 
 		if n == 0 {
 			n = 1
 		}
-		if n > 16 {
-			n = 16
+
+		if n > MaxLen {
+			n = MaxLen
 		}
 
-		backData = make([]byte, n)
 		for i := byte(0); i < n; i++ {
-			backData[i] = r.readRegister(FIFODataReg)
+			backData = append(backData, r.readRegister(FIFODataReg))
 		}
 	}
 
-	return status, backData, backLen
+	return status, backData
 }
 
 // GetLastCard returns the last scanned card

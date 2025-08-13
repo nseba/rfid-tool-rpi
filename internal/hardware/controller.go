@@ -1,3 +1,5 @@
+// Package hardware provides hardware interface control for RFID operations.
+// It manages GPIO pins for buttons and LEDs to provide a physical interface for RFID card operations.
 package hardware
 
 import (
@@ -16,15 +18,15 @@ import (
 // Controller represents the hardware controller
 type Controller struct {
 	reader      *rfid.Reader
-	config      config.HardwareConfig
 	readButton  gpio.PinIO
 	writeButton gpio.PinIO
 	statusLED   gpio.PinIO
 	errorLED    gpio.PinIO
 	readyLED    gpio.PinIO
-	running     bool
 	stopChan    chan struct{}
 	cardData    []byte
+	config      config.HardwareConfig
+	running     bool
 }
 
 // NewController creates a new hardware controller
@@ -46,9 +48,9 @@ func NewController(reader *rfid.Reader, cfg config.HardwareConfig) (*Controller,
 	}
 
 	// Initialize LEDs (turn them off)
-	controller.statusLED.Out(gpio.Low)
-	controller.errorLED.Out(gpio.Low)
-	controller.readyLED.Out(gpio.High) // Ready LED on by default
+	_ = controller.statusLED.Out(gpio.Low)
+	_ = controller.errorLED.Out(gpio.Low)
+	_ = controller.readyLED.Out(gpio.High) // Ready LED on by default
 
 	return controller, nil
 }
@@ -108,7 +110,7 @@ func (c *Controller) initGPIO() error {
 // Start starts the hardware controller
 func (c *Controller) Start() {
 	c.running = true
-	c.readyLED.Out(gpio.High) // Show ready state
+	_ = c.readyLED.Out(gpio.High) // Show ready state
 
 	log.Println("Hardware controller started")
 	log.Println("Press the read button to scan and read card")
@@ -124,7 +126,8 @@ func (c *Controller) Start() {
 		default:
 			// Check button presses
 			c.checkButtons()
-			time.Sleep(50 * time.Millisecond) // Small delay to prevent busy waiting
+			const pollingDelay = 50 * time.Millisecond
+			time.Sleep(pollingDelay) // Small delay to prevent busy waiting
 		}
 	}
 }
@@ -141,13 +144,13 @@ func (c *Controller) Close() error {
 
 	// Turn off all LEDs
 	if c.statusLED != nil {
-		c.statusLED.Out(gpio.Low)
+		_ = c.statusLED.Out(gpio.Low)
 	}
 	if c.errorLED != nil {
-		c.errorLED.Out(gpio.Low)
+		_ = c.errorLED.Out(gpio.Low)
 	}
 	if c.readyLED != nil {
-		c.readyLED.Out(gpio.Low)
+		_ = c.readyLED.Out(gpio.Low)
 	}
 
 	return nil
@@ -173,9 +176,11 @@ func (c *Controller) checkButtons() {
 // waitForButtonRelease waits for a button to be released
 func (c *Controller) waitForButtonRelease(button gpio.PinIO) {
 	for button.Read() == gpio.Low {
-		time.Sleep(10 * time.Millisecond)
+		const buttonCheckDelay = 10 * time.Millisecond
+		time.Sleep(buttonCheckDelay)
 	}
-	time.Sleep(50 * time.Millisecond) // Debounce delay
+	const debounceDelay = 50 * time.Millisecond
+	time.Sleep(debounceDelay) // Debounce delay
 }
 
 // handleReadButton handles read button press
@@ -183,7 +188,7 @@ func (c *Controller) handleReadButton() {
 	log.Println("Read button pressed")
 
 	c.setLEDState(false, false, false) // Turn off all LEDs
-	c.statusLED.Out(gpio.High)         // Show scanning status
+	_ = c.statusLED.Out(gpio.High)     // Show scanning status
 
 	// Scan for card
 	card, err := c.reader.ScanForCard()
@@ -242,7 +247,7 @@ func (c *Controller) handleWriteButton() {
 	}
 
 	c.setLEDState(false, false, false) // Turn off all LEDs
-	c.statusLED.Out(gpio.High)         // Show writing status
+	_ = c.statusLED.Out(gpio.High)     // Show writing status
 
 	// Scan for card
 	card, err := c.reader.ScanForCard()
@@ -255,7 +260,7 @@ func (c *Controller) handleWriteButton() {
 	log.Printf("Writing to card: %s", card.String())
 
 	// Write data to block 1 (block 0 is usually read-only)
-	if err := c.reader.WriteBlock(1, c.cardData); err != nil {
+	if writeErr := c.reader.WriteBlock(1, c.cardData); writeErr != nil {
 		log.Printf("Failed to write to card: %v", err)
 		c.showError("Failed to write card")
 		return
@@ -292,23 +297,23 @@ func (c *Controller) handleWriteButton() {
 }
 
 // setLEDState sets the state of all LEDs
-func (c *Controller) setLEDState(ready, status, error bool) {
+func (c *Controller) setLEDState(ready, status, errorState bool) {
 	if ready {
-		c.readyLED.Out(gpio.High)
+		_ = c.readyLED.Out(gpio.High)
 	} else {
-		c.readyLED.Out(gpio.Low)
+		_ = c.readyLED.Out(gpio.Low)
 	}
 
 	if status {
-		c.statusLED.Out(gpio.High)
+		_ = c.statusLED.Out(gpio.High)
 	} else {
-		c.statusLED.Out(gpio.Low)
+		_ = c.statusLED.Out(gpio.Low)
 	}
 
-	if error {
-		c.errorLED.Out(gpio.High)
+	if errorState {
+		_ = c.errorLED.Out(gpio.High)
 	} else {
-		c.errorLED.Out(gpio.Low)
+		_ = c.errorLED.Out(gpio.Low)
 	}
 }
 
@@ -320,10 +325,11 @@ func (c *Controller) showError(message string) {
 	// Blink error LED for emphasis
 	go func() {
 		for i := 0; i < 6; i++ {
-			c.errorLED.Out(gpio.Low)
-			time.Sleep(200 * time.Millisecond)
-			c.errorLED.Out(gpio.High)
-			time.Sleep(200 * time.Millisecond)
+			_ = c.errorLED.Out(gpio.Low)
+			const blinkInterval = 200 * time.Millisecond
+			time.Sleep(blinkInterval)
+			_ = c.errorLED.Out(gpio.High)
+			time.Sleep(blinkInterval)
 		}
 		c.setLEDState(true, false, false) // Back to ready state
 	}()

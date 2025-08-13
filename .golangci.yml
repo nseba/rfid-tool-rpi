@@ -2,441 +2,458 @@
 # https://golangci-lint.run/usage/configuration/
 
 run:
-  timeout: 5m
-  issues-exit-code: 1
-  tests: true
-  modules-download-mode: readonly
-  allow-parallel-runners: true
+    timeout: 5m
+    issues-exit-code: 1
+    tests: true
+    modules-download-mode: readonly
+    allow-parallel-runners: true
 
 output:
-  format: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
-  uniq-by-line: true
-  sort-results: true
+    formats:
+        - format: colored-line-number
+    print-issued-lines: true
+    print-linter-name: true
+    sort-results: true
 
 linters-settings:
-  cyclop:
-    max-complexity: 15
-    package-average: 10.0
-    skip-tests: true
+    cyclop:
+        max-complexity: 15
+        package-average: 10.0
+        skip-tests: true
 
-  dupl:
-    threshold: 100
+    dupl:
+        threshold: 100
 
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-    ignore: fmt:.*,io/ioutil:^Read.*
+    errcheck:
+        check-type-assertions: true
+        check-blank: true
+        exclude-functions:
+            - fmt:.*
+            - io/ioutil:^Read.*
+            - (*periph.io/x/conn/v3/spi.Conn).Tx
 
-  exhaustive:
-    check-generated: false
-    default-signifies-exhaustive: false
+    depguard:
+        rules:
+            Main:
+                files:
+                    - $all
+                    - "!$test"
+                allow:
+                    - $gostd
+                    - rfid-tool-rpi
+                    - periph.io
+                    - github.com/gorilla
 
-  forbidigo:
-    forbid:
-      - ^print.*$
-      - 'fmt\.Print.*'
+    exhaustive:
+        check-generated: false
+        default-signifies-exhaustive: false
 
-  funlen:
-    lines: 100
-    statements: 50
+    forbidigo:
+        forbid:
+            - ^print.*$
+            - 'fmt\.Print.*'
 
-  gci:
-    local-prefixes: rfid-tool-rpi
+    funlen:
+        lines: 100
+        statements: 50
 
-  gocognit:
-    min-complexity: 15
+    gci:
+        sections:
+            - standard
+            - default
+            - prefix(rfid-tool-rpi)
 
-  goconst:
-    min-len: 2
-    min-occurrences: 3
+    gocognit:
+        min-complexity: 15
 
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - dupImport # https://github.com/go-critic/go-critic/issues/845
-      - ifElseChain
-      - octalLiteral
-      - whyNoLint
-      - wrapperFunc
-      - importShadow # not important for now
-      - unnamedResult # not important for now
+    goconst:
+        min-len: 2
+        min-occurrences: 3
 
-  gocyclo:
-    min-complexity: 15
+    gocritic:
+        enabled-tags:
+            - diagnostic
+            - experimental
+            - opinionated
+            - performance
+            - style
+        disabled-checks:
+            - dupImport # https://github.com/go-critic/go-critic/issues/845
+            - ifElseChain
+            - octalLiteral
+            - whyNoLint
+            - wrapperFunc
+            - importShadow # not important for now
+            - unnamedResult # not important for now
 
-  godot:
-    scope: declarations
-    capital: false
+    gocyclo:
+        min-complexity: 15
 
-  gofmt:
-    simplify: true
+    godot:
+        scope: declarations
+        capital: false
 
-  goimports:
-    local-prefixes: rfid-tool-rpi
+    gofmt:
+        simplify: true
 
-  gomnd:
-    checks:
-      - argument
-      - case
-      - condition
-      - operation
-      - return
-    ignored-numbers:
-      - 0
-      - 1
-      - 2
-      - 3
-      - 4
-      - 8
-      - 16
-      - 32
-      - 64
-      - 100
-      - 1000
-      - 1024
+    goimports:
+        local-prefixes: rfid-tool-rpi
 
-  gomoddirectives:
-    replace-local: false
-    replace-allow-list: []
-    retract-allow-no-explanation: false
-    exclude-forbidden: false
+    mnd:
+        checks:
+            - argument
+            - case
+            - condition
+            - operation
+            - return
+        ignored-numbers:
+            - 0
+            - 1
+            - 2
+            - 3
+            - 4
+            - 8
+            - 16
+            - 32
+            - 64
+            - 100
+            - 1000
+            - 1024
 
-  gomodguard:
-    allowed:
-      modules: []
-      domains: []
-    blocked:
-      modules: []
-      versions: []
+    gomoddirectives:
+        replace-local: false
+        replace-allow-list: []
+        retract-allow-no-explanation: false
+        exclude-forbidden: false
 
-  gosec:
-    includes:
-      - G401
-      - G306
-      - G101
-    excludes:
-      - G204 # Subprocess launched with variable
-    exclude-generated: true
-    severity: "low"
-    confidence: "low"
-    config:
-      G306: "0644"
-      G101:
-        pattern: "(?i)passw|pwd|token|secret|key"
-        ignore_entropy: false
-        entropy_threshold: "80.0"
-        per_char_threshold: "3.0"
-        truncate: "32"
+    gomodguard:
+        allowed:
+            modules: []
+            domains: []
+        blocked:
+            modules: []
+            versions: []
 
-  gosimple:
-    go: "1.21"
-    checks: ["all"]
+    gosec:
+        includes:
+            - G401
+            - G306
+            - G101
+        excludes:
+            - G204 # Subprocess launched with variable
+        exclude-generated: true
+        severity: "low"
+        confidence: "low"
+        config:
+            G306: "0644"
+            G101:
+                pattern: "(?i)passw|pwd|token|secret|key"
+                ignore_entropy: false
+                entropy_threshold: "80.0"
+                per_char_threshold: "3.0"
+                truncate: "32"
 
-  govet:
-    check-shadowing: true
-    settings:
-      printf:
-        funcs:
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
-    enable:
-      - atomicalign
-      - deepequalerrors
-      - fieldalignment
-      - findcall
-      - nilness
-      - reflectvaluecompare
-      - shadow
-      - sortslice
-      - timeformat
-      - unusedwrite
+    gosimple:
+        checks: ["all"]
 
-  ineffassign:
-    check-exported: false
+    govet:
+        settings:
+            printf:
+                funcs:
+                    - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+                    - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+                    - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+                    - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+        enable:
+            - atomicalign
+            - deepequalerrors
+            - fieldalignment
+            - findcall
+            - nilness
+            - reflectvaluecompare
+            - shadow
+            - sortslice
+            - timeformat
+            - unusedwrite
 
-  lll:
-    line-length: 140
+    ineffassign:
+        check-exported: false
 
-  misspell:
-    locale: US
-    ignore-words:
-      - someword
+    lll:
+        line-length: 140
 
-  nakedret:
-    max-func-lines: 30
+    misspell:
+        locale: US
+        ignore-words:
+            - someword
 
-  nestif:
-    min-complexity: 4
+    nakedret:
+        max-func-lines: 30
 
-  nilnil:
-    checked-types:
-      - ptr
-      - func
-      - iface
-      - map
-      - chan
+    nestif:
+        min-complexity: 4
 
-  nlreturn:
-    block-size: 1
+    nilnil:
+        checked-types:
+            - ptr
+            - func
+            - iface
+            - map
+            - chan
 
-  noctx:
-    require-reason: false
+    nlreturn:
+        block-size: 1
 
-  nolintlint:
-    allow-leading-space: true
-    allow-unused: false
-    require-explanation: false
-    require-specific: false
+    noctx:
+        require-reason: false
 
-  predeclared:
-    ignore: ""
-    q: false
+    nolintlint:
+        allow-leading-space: true
+        allow-unused: false
+        require-explanation: false
+        require-specific: false
 
-  promlinter:
-    strict: false
-    disabled-linters: []
+    predeclared:
+        ignore: ""
+        q: false
 
-  revive:
-    min-confidence: 0
-    rules:
-      - name: blank-imports
-      - name: context-as-argument
-      - name: context-keys-type
-      - name: dot-imports
-      - name: error-return
-      - name: error-strings
-      - name: error-naming
-      - name: exported
-      - name: if-return
-      - name: increment-decrement
-      - name: var-naming
-      - name: var-declaration
-      - name: package-comments
-      - name: range
-      - name: receiver-naming
-      - name: time-naming
-      - name: unexported-return
-      - name: indent-error-flow
-      - name: errorf
-      - name: empty-block
-      - name: superfluous-else
-      - name: unused-parameter
-      - name: unreachable-code
-      - name: redefines-builtin-id
+    promlinter:
+        strict: false
+        disabled-linters: []
 
-  staticcheck:
-    go: "1.21"
-    checks: ["all"]
+    revive:
+        min-confidence: 0
+        rules:
+            - name: blank-imports
+            - name: context-as-argument
+            - name: context-keys-type
+            - name: dot-imports
+            - name: error-return
+            - name: error-strings
+            - name: error-naming
+            - name: exported
+            - name: if-return
+            - name: increment-decrement
+            - name: var-naming
+            - name: var-declaration
+            - name: package-comments
+            - name: range
+            - name: receiver-naming
+            - name: time-naming
+            - name: unexported-return
+            - name: indent-error-flow
+            - name: errorf
+            - name: empty-block
+            - name: superfluous-else
+            - name: unused-parameter
+            - name: unreachable-code
+            - name: redefines-builtin-id
 
-  stylecheck:
-    go: "1.21"
-    checks: ["all", "-ST1000", "-ST1003", "-ST1016", "-ST1020", "-ST1021", "-ST1022"]
-    dot-import-whitelist:
-      - fmt
-    initialisms: ["ACL", "API", "ASCII", "CPU", "CSS", "DNS", "EOF", "GUID", "HTML", "HTTP", "HTTPS", "ID", "IP", "JSON", "QPS", "RAM", "RPC", "SLA", "SMTP", "SQL", "SSH", "TCP", "TLS", "TTL", "UDP", "UI", "GID", "UID", "UUID", "URI", "URL", "UTF8", "VM", "XML", "XMPP", "XSRF", "XSS"]
-    http-status-code-whitelist: ["200", "400", "404", "500"]
+    staticcheck:
+        checks: ["all"]
 
-  tagliatelle:
-    case:
-      rules:
-        json: camel
-        yaml: camel
-        xml: camel
-        bson: camel
-        avro: snake
-        mapstructure: kebab
+    stylecheck:
+        checks: ["all", "-ST1000", "-ST1003", "-ST1016", "-ST1020", "-ST1021", "-ST1022"]
+        dot-import-whitelist:
+            - fmt
+        initialisms: ["ACL", "API", "ASCII", "CPU", "CSS", "DNS", "EOF", "GUID", "HTML", "HTTP", "HTTPS", "ID", "IP", "JSON", "QPS", "RAM", "RPC", "SLA", "SMTP", "SQL", "SSH", "TCP", "TLS", "TTL", "UDP", "UI", "GID", "UID", "UUID", "URI", "URL", "UTF8", "VM", "XML", "XMPP", "XSRF", "XSS"]
+        http-status-code-whitelist: ["200", "400", "404", "500"]
 
-  tenv:
-    all: false
+    tagliatelle:
+        case:
+            rules:
+                json: camel
+                yaml: camel
+                xml: camel
+                bson: camel
+                avro: snake
+                mapstructure: kebab
 
-  testpackage:
-    skip-regexp: (export|internal)_test\.go
+    tenv:
+        all: false
 
-  thelper:
-    test:
-      first: true
-      name: true
-      begin: true
-    benchmark:
-      first: true
-      name: true
-      begin: true
+    testpackage:
+        skip-regexp: (export|internal)_test\.go
 
-  unparam:
-    check-exported: false
+    thelper:
+        test:
+            first: true
+            name: true
+            begin: true
+        benchmark:
+            first: true
+            name: true
+            begin: true
 
-  unused:
-    go: "1.21"
+    unparam:
+        check-exported: false
 
-  whitespace:
-    multi-if: false
-    multi-func: false
+    unused: {}
 
-  wrapcheck:
-    ignoreSigs:
-      - .Errorf(
-      - errors.New(
-      - errors.Unwrap(
-      - .Wrap(
-      - .Wrapf(
-      - .WithMessage(
-      - .WithMessagef(
-      - .WithStack(
-    ignoreSigRegexps:
-      - \.New.*Error\(
-    ignorePackageGlobs:
-      - encoding/*
-      - github.com/pkg/*
+    whitespace:
+        multi-if: false
+        multi-func: false
 
-  wsl:
-    strict-append: true
-    allow-assign-and-call: true
-    allow-multiline-assign: true
-    allow-cuddle-declarations: false
-    allow-trailing-comment: false
-    force-case-trailing-whitespace: 0
-    force-err-cuddling: false
-    allow-separated-leading-comment: false
+    wrapcheck:
+        ignoreSigs:
+            - .Errorf(
+            - errors.New(
+            - errors.Unwrap(
+            - .Wrap(
+            - .Wrapf(
+            - .WithMessage(
+            - .WithMessagef(
+            - .WithStack(
+        ignoreSigRegexps:
+            - \.New.*Error\(
+        ignorePackageGlobs:
+            - encoding/*
+            - github.com/pkg/*
+
+    wsl:
+        strict-append: true
+        allow-assign-and-call: true
+        allow-multiline-assign: true
+        allow-cuddle-declarations: false
+        allow-trailing-comment: false
+        force-case-trailing-whitespace: 0
+        force-err-cuddling: false
+        allow-separated-leading-comment: false
 
 linters:
-  disable-all: true
-  enable:
-    - bodyclose
-    - deadcode
-    - depguard
-    - dogsled
-    - dupl
-    - errcheck
-    - exportloopref
-    - exhaustive
-    - funlen
-    - gochecknoinits
-    - goconst
-    - gocritic
-    - gocyclo
-    - gofmt
-    - goimports
-    - gomnd
-    - goprintffuncname
-    - gosec
-    - gosimple
-    - govet
-    - ineffassign
-    - lll
-    - misspell
-    - nakedret
-    - noctx
-    - nolintlint
-    - revive
-    - staticcheck
-    - structcheck
-    - stylecheck
-    - typecheck
-    - unconvert
-    - unparam
-    - unused
-    - varcheck
-    - whitespace
+    disable-all: true
+    enable:
+        - bodyclose
+        - copyloopvar
+        - depguard
+        - dogsled
+        - dupl
+        - errcheck
+        - exhaustive
+        - funlen
+        - gochecknoinits
+        - goconst
+        - gocritic
+        - gocyclo
+        - gofmt
+        - goimports
+        - mnd
+        - goprintffuncname
+        - gosec
+        - gosimple
+        - govet
+        - ineffassign
+        - lll
+        - misspell
+        - nakedret
+        - noctx
+        - nolintlint
+        - revive
+        - staticcheck
+        - stylecheck
+        - typecheck
+        - unconvert
+        - unparam
+        - unused
+        - whitespace
 
-  # don't enable:
-  # - asciicheck
-  # - cyclop
-  # - forbidigo
-  # - gci
-  # - gochecknoglobals
-  # - gocognit
-  # - godot
-  # - godox
-  # - goerr113
-  # - gofumpt
-  # - goheader
-  # - gomodguard
-  # - gomoddirectives
-  # - importas
-  # - interfacer
-  # - maligned
-  # - nestif
-  # - nilnil
-  # - nlreturn
-  # - predeclared
-  # - promlinter
-  # - scopelint
-  # - tagliatelle
-  # - tenv
-  # - testpackage
-  # - thelper
-  # - wrapcheck
-  # - wsl
+    # don't enable:
+    # - asciicheck
+    # - cyclop
+    # - forbidigo
+    # - gci
+    # - gochecknoglobals
+    # - gocognit
+    # - godot
+    # - godox
+    # - goerr113
+    # - gofumpt
+    # - goheader
+    # - gomodguard
+    # - gomoddirectives
+    # - importas
+    # - interfacer
+    # - maligned
+    # - nestif
+    # - nilnil
+    # - nlreturn
+    # - predeclared
+    # - promlinter
+    # - scopelint
+    # - tagliatelle
+    # - tenv
+    # - testpackage
+    # - thelper
+    # - wrapcheck
+    # - wsl
 
 issues:
-  exclude-rules:
-    # Exclude some linters from running on tests files.
-    - path: _test\.go
-      linters:
-        - gocyclo
-        - errcheck
-        - dupl
-        - gosec
-        - funlen
-        - goconst
-        - gochecknoinits
-        - gomnd
+    uniq-by-line: true
+    exclude-rules:
+        # Exclude some linters from running on tests files.
+        - path: _test\.go
+          linters:
+              - gocyclo
+              - errcheck
+              - dupl
+              - gosec
+              - funlen
+              - goconst
+              - gochecknoinits
+              - mnd
 
-    # Exclude known linters from partially hard-to-fix issues
-    - path: internal/rfid/reader\.go
-      linters:
-        - gomnd
-        - funlen
-        - gocyclo
+        # Exclude known linters from partially hard-to-fix issues
+        - path: internal/rfid/reader\.go
+          linters:
+              - mnd
+              - funlen
+              - gocyclo
 
-    # Exclude hardware controller from some checks due to GPIO complexity
-    - path: internal/hardware/controller\.go
-      linters:
-        - funlen
-        - gocyclo
+        # Exclude hardware controller from some checks due to GPIO complexity
+        - path: internal/hardware/controller\.go
+          linters:
+              - funlen
+              - gocyclo
 
-    # Exclude main.go from some checks
-    - path: cmd/main\.go
-      linters:
-        - gochecknoinits
+        # Exclude main.go from some checks
+        - path: cmd/main\.go
+          linters:
+              - gochecknoinits
 
-    # Exclude server from some length checks due to embedded HTML
-    - path: internal/server/server\.go
-      linters:
-        - lll
-        - funlen
+        # Exclude server from some length checks due to embedded HTML
+        - path: internal/server/server\.go
+          linters:
+              - lll
+              - funlen
 
-    - text: "Use of weak random number generator"
-      linters:
-        - gosec
+        - text: "Use of weak random number generator"
+          linters:
+              - gosec
 
-    - text: "Subprocess launched with variable"
-      linters:
-        - gosec
+        - text: "Subprocess launched with variable"
+          linters:
+              - gosec
 
-    # Independent from current platform
-    - text: "G204: Subprocess launched with a potential tainted input or cmd arguments"
-      linters:
-        - gosec
+        # Independent from current platform
+        - text: "G204: Subprocess launched with a potential tainted input or cmd arguments"
+          linters:
+              - gosec
 
-  exclude-use-default: false
-  exclude-case-sensitive: false
-  include-mode: ""
-  max-issues-per-linter: 0
-  max-same-issues: 0
-  new: false
-  fix: false
+        # Exclude deliberate error ignoring for SPI/GPIO operations
+        - text: "Error return value.*is not checked"
+          source: "_ = .*\\.(Tx|Out|Write|Close|Encode)\\("
+          linters:
+              - errcheck
+
+    exclude-use-default: false
+    exclude-case-sensitive: false
+    include-mode: ""
+    max-issues-per-linter: 0
+    max-same-issues: 0
+    new: false
+    fix: false
 
 severity:
-  default-severity: error
-  case-sensitive: false
-  rules: []
+    default-severity: error
+    case-sensitive: false
+    rules: []

@@ -1,3 +1,5 @@
+// Package config provides configuration management for the RFID Tool application.
+// It handles loading and validation of configuration settings for different hardware platforms.
 package config
 
 import (
@@ -8,12 +10,12 @@ import (
 
 // Config holds the application configuration
 type Config struct {
+	Web           WebConfig           `json:"web"`
+	Compatibility CompatibilityConfig `json:"compatibility"`
+	System        SystemConfig        `json:"system"`
 	RFID          RFIDConfig          `json:"rfid"`
 	Hardware      HardwareConfig      `json:"hardware"`
-	Web           WebConfig           `json:"web"`
-	System        SystemConfig        `json:"system"`
 	Performance   PerformanceConfig   `json:"performance"`
-	Compatibility CompatibilityConfig `json:"compatibility"`
 }
 
 // RFIDConfig holds RFID-specific configuration optimized for RPi 2B v1.1
@@ -48,8 +50,8 @@ type SystemConfig struct {
 	SoC               string `json:"soc"`                     // System on Chip identifier
 	Architecture      string `json:"architecture"`            // CPU architecture
 	CPU               string `json:"cpu"`                     // CPU type
-	MaxMemoryMB       int    `json:"max_memory_mb"`           // Maximum available memory in MB
 	GPIODriver        string `json:"gpio_driver"`             // GPIO driver name
+	MaxMemoryMB       int    `json:"max_memory_mb"`           // Maximum available memory in MB
 	SPIMaxSpeed       int    `json:"spi_max_speed"`           // Maximum SPI speed supported
 	OptimizedCortexA7 bool   `json:"optimized_for_cortex_a7"` // Enable Cortex-A7 optimizations
 }
@@ -202,65 +204,92 @@ func (c *Config) Save(filename string) error {
 		return err
 	}
 
-	return os.WriteFile(filename, data, 0644)
+	const fileMode = 0o644
+	return os.WriteFile(filename, data, fileMode)
 }
 
 // validateAndAdjust validates and adjusts configuration values for RPi 2B v1.1
 func (c *Config) validateAndAdjust() {
-	// Validate SPI speed limits for BCM2836
+	c.validateSPISpeed()
+	c.validateGPIOPins()
+	c.validatePerformanceParams()
+}
+
+// validateSPISpeed validates SPI speed limits for BCM2836
+func (c *Config) validateSPISpeed() {
 	if c.RFID.SPISpeed > c.System.SPIMaxSpeed {
 		c.RFID.SPISpeed = c.System.SPIMaxSpeed
 	}
-	if c.RFID.SPISpeed < 100000 { // Minimum 100kHz
-		c.RFID.SPISpeed = 100000
+	const minSPISpeed = 100000 // Minimum 100kHz
+	if c.RFID.SPISpeed < minSPISpeed {
+		c.RFID.SPISpeed = minSPISpeed
+	}
+}
+
+// validateGPIOPins validates GPIO pin ranges (BCM2835/2836 has GPIO 0-53)
+func (c *Config) validateGPIOPins() {
+	const (
+		defaultReadButton  = 2
+		defaultWriteButton = 3
+		defaultStatusLED   = 4
+		defaultErrorLED    = 17
+		defaultReadyLED    = 27
+	)
+	c.validateGPIOPin(&c.Hardware.ReadButton, defaultReadButton)
+	c.validateGPIOPin(&c.Hardware.WriteButton, defaultWriteButton)
+	c.validateGPIOPin(&c.Hardware.StatusLED, defaultStatusLED)
+	c.validateGPIOPin(&c.Hardware.ErrorLED, defaultErrorLED)
+	c.validateGPIOPin(&c.Hardware.ReadyLED, defaultReadyLED)
+}
+
+// validateGPIOPin validates a single GPIO pin value
+func (c *Config) validateGPIOPin(pin *int, defaultValue int) {
+	const gpioMax = 53
+	if *pin > gpioMax || *pin < 0 {
+		*pin = defaultValue
+	}
+}
+
+// validatePerformanceParams validates performance parameters
+func (c *Config) validatePerformanceParams() {
+	const (
+		minPollingInterval = 10   // Minimum 10ms (100Hz max)
+		maxPollingInterval = 5000 // Maximum 5s
+		minDebounceDelay   = 5    // Minimum 5ms
+		maxDebounceDelay   = 1000 // Maximum 1s
+	)
+
+	if c.Performance.PollingIntervalMs < minPollingInterval {
+		c.Performance.PollingIntervalMs = minPollingInterval
+	}
+	if c.Performance.PollingIntervalMs > maxPollingInterval {
+		c.Performance.PollingIntervalMs = maxPollingInterval
 	}
 
-	// Validate GPIO pin ranges (BCM2835/2836 has GPIO 0-53)
-	gpioMax := 53
-	if c.Hardware.ReadButton > gpioMax || c.Hardware.ReadButton < 0 {
-		c.Hardware.ReadButton = 2 // Default safe value
+	if c.Performance.DebounceDelayMs < minDebounceDelay {
+		c.Performance.DebounceDelayMs = minDebounceDelay
 	}
-	if c.Hardware.WriteButton > gpioMax || c.Hardware.WriteButton < 0 {
-		c.Hardware.WriteButton = 3 // Default safe value
-	}
-	if c.Hardware.StatusLED > gpioMax || c.Hardware.StatusLED < 0 {
-		c.Hardware.StatusLED = 4 // Default safe value
-	}
-	if c.Hardware.ErrorLED > gpioMax || c.Hardware.ErrorLED < 0 {
-		c.Hardware.ErrorLED = 17 // Default safe value
-	}
-	if c.Hardware.ReadyLED > gpioMax || c.Hardware.ReadyLED < 0 {
-		c.Hardware.ReadyLED = 27 // Default safe value
-	}
-
-	// Validate performance parameters
-	if c.Performance.PollingIntervalMs < 10 {
-		c.Performance.PollingIntervalMs = 10 // Minimum 10ms (100Hz max)
-	}
-	if c.Performance.PollingIntervalMs > 5000 {
-		c.Performance.PollingIntervalMs = 5000 // Maximum 5s
-	}
-
-	if c.Performance.DebounceDelayMs < 5 {
-		c.Performance.DebounceDelayMs = 5 // Minimum 5ms
-	}
-	if c.Performance.DebounceDelayMs > 1000 {
-		c.Performance.DebounceDelayMs = 1000 // Maximum 1s
+	if c.Performance.DebounceDelayMs > maxDebounceDelay {
+		c.Performance.DebounceDelayMs = maxDebounceDelay
 	}
 }
 
 // GetOptimizedSPISpeed returns the optimal SPI speed based on system capabilities
 func (c *Config) GetOptimizedSPISpeed() int {
+	const (
+		conservativeSpeed = 500000  // 500kHz conservative speed
+		maxReliableSpeed  = 2000000 // 2MHz maximum reliable speed
+	)
+
 	// Determine optimal SPI speed based on architecture
 	if runtime.GOARCH == "arm" && c.System.OptimizedCortexA7 {
 		// For RPi 2B v1.1 with Cortex-A7
-		if c.RFID.SPISpeed <= 500000 {
+		if c.RFID.SPISpeed <= conservativeSpeed {
 			return c.RFID.SPISpeed // Use configured conservative speed
-		} else if c.RFID.SPISpeed <= 2000000 {
+		} else if c.RFID.SPISpeed <= maxReliableSpeed {
 			return c.RFID.SPISpeed // Use configured performance speed
-		} else {
-			return 2000000 // Cap at 2MHz for reliability
 		}
+		return maxReliableSpeed // Cap at 2MHz for reliability
 	}
 
 	// Default fallback
@@ -279,16 +308,24 @@ func (c *Config) IsCompatibleBoard(detectedModel string) bool {
 
 // GetMemoryConstrainedSettings returns settings appropriate for the available memory
 func (c *Config) GetMemoryConstrainedSettings(availableMemoryMB int) *Config {
+	const (
+		lowMemoryThreshold      = 512  // 512MB threshold for low memory
+		moderateMemoryThreshold = 800  // 800MB threshold for moderate memory
+		conservativePolling     = 200  // Conservative polling interval
+		conservativeRefresh     = 2000 // Conservative refresh rate
+		moderatePolling         = 150  // Moderate polling interval
+	)
+
 	adjustedConfig := *c
 
 	// Adjust settings based on available memory
-	if availableMemoryMB < 512 {
+	if availableMemoryMB < lowMemoryThreshold {
 		// Very low memory - use conservative settings
-		adjustedConfig.Performance.PollingIntervalMs = 200
-		adjustedConfig.Performance.WebRefreshRateMs = 2000
-	} else if availableMemoryMB < 800 {
+		adjustedConfig.Performance.PollingIntervalMs = conservativePolling
+		adjustedConfig.Performance.WebRefreshRateMs = conservativeRefresh
+	} else if availableMemoryMB < moderateMemoryThreshold {
 		// Low memory - moderate settings
-		adjustedConfig.Performance.PollingIntervalMs = 150
+		adjustedConfig.Performance.PollingIntervalMs = moderatePolling
 		adjustedConfig.Performance.WebRefreshRateMs = 1500
 	}
 	// For 1GB (normal RPi 2B v1.1), use default settings

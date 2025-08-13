@@ -1,3 +1,5 @@
+// Package main provides the entry point for the RFID Tool application.
+// It supports both web interface mode and hardware button/LED mode for interacting with RFID cards.
 package main
 
 import (
@@ -34,7 +36,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize RFID reader: %v", err)
 	}
-	defer rfidReader.Close()
+	defer func() {
+		if err := rfidReader.Close(); err != nil {
+			log.Printf("Failed to close RFID reader: %v", err)
+		}
+	}()
 
 	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)
@@ -52,25 +58,30 @@ func main() {
 
 		<-sigChan
 		log.Println("Shutting down web server...")
-		webServer.Stop()
-
+		if err := webServer.Stop(); err != nil {
+			log.Printf("Failed to stop web server: %v", err)
+		}
 	} else if *hwMode {
 		log.Println("Starting in hardware mode...")
 		hwController, err := hardware.NewController(rfidReader, cfg.Hardware)
 		if err != nil {
-			log.Fatalf("Failed to initialize hardware controller: %v", err)
+			log.Printf("Failed to initialize hardware controller: %v", err)
+			return
 		}
-		defer hwController.Close()
+		defer func() {
+			if err := hwController.Close(); err != nil {
+				log.Printf("Failed to close hardware controller: %v", err)
+			}
+		}()
 
 		go hwController.Start()
 
 		<-sigChan
 		log.Println("Shutting down hardware controller...")
-
 	} else {
 		log.Println("Please specify either -web or -hardware mode")
 		flag.Usage()
-		os.Exit(1)
+		return
 	}
 
 	log.Println("Application stopped")
