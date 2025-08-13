@@ -70,7 +70,8 @@ func main() {
 		}
 	} else if *hwMode {
 		if rfidReader == nil {
-			log.Fatalf("Cannot start hardware mode: RFID reader initialization failed")
+			log.Printf("Cannot start hardware mode: RFID reader initialization failed")
+			return
 		}
 		log.Println("Starting in hardware mode...")
 		hwController, err := hardware.NewController(rfidReader, cfg.Hardware)

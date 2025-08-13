@@ -463,7 +463,7 @@ jobs:
         if: always()
         steps:
             - name: Notify Discord (if configured)
-              if: success() && secrets.DISCORD_WEBHOOK
+              if: success() && secrets.DISCORD_WEBHOOK != ''
               uses: Ilshidur/action-discord@master
               env:
                   DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
@@ -475,7 +475,7 @@ jobs:
                       🐳 Docker: `docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.APP_NAME }}:${{ needs.validate.outputs.version }}`
 
             - name: Notify Slack (if configured)
-              if: success() && secrets.SLACK_WEBHOOK
+              if: success() && secrets.SLACK_WEBHOOK != ''
               uses: 8398a7/action-slack@v3
               with:
                   status: ${{ job.status }}
