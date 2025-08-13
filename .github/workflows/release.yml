@@ -29,7 +29,7 @@ jobs:
             is_prerelease: ${{ steps.version.outputs.is_prerelease }}
         steps:
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
               with:
                   fetch-depth: 0
 
@@ -76,15 +76,15 @@ jobs:
         needs: validate
         steps:
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
 
             - name: Set up Go
-              uses: actions/setup-go@v4
+              uses: actions/setup-go@v5
               with:
                   go-version: ${{ env.GO_VERSION }}
 
             - name: Cache Go modules
-              uses: actions/cache@v3
+              uses: actions/cache@v4
               with:
                   path: |
                       ~/.cache/go-build
@@ -132,17 +132,17 @@ jobs:
                       desc: "x86-64 Linux"
         steps:
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
               with:
                   fetch-depth: 0
 
             - name: Set up Go
-              uses: actions/setup-go@v4
+              uses: actions/setup-go@v5
               with:
                   go-version: ${{ env.GO_VERSION }}
 
             - name: Cache Go modules
-              uses: actions/cache@v3
+              uses: actions/cache@v4
               with:
                   path: |
                       ~/.cache/go-build
@@ -252,7 +252,7 @@ jobs:
                   sha256sum "${DIST_NAME}.tar.gz" > "${DIST_NAME}.tar.gz.sha256"
 
             - name: Upload build artifacts
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
                   name: ${{ env.APP_NAME }}-${{ matrix.suffix }}
                   path: |
@@ -265,7 +265,7 @@ jobs:
         needs: [validate, test]
         steps:
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
 
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v3
@@ -319,12 +319,12 @@ jobs:
             contents: write
         steps:
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
               with:
                   fetch-depth: 0
 
             - name: Download all artifacts
-              uses: actions/download-artifact@v3
+              uses: actions/download-artifact@v5
               with:
                   path: artifacts
 
