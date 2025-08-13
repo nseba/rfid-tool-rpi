@@ -57,8 +57,8 @@ check_dependencies() {
     log_info "Checking system dependencies..."
 
     # Check if required files exist
-    if [ ! -f "${APP_NAME}-rpi" ]; then
-        log_error "Binary '${APP_NAME}-rpi' not found in current directory"
+    if [ ! -f "${APP_NAME}" ]; then
+        log_error "Binary '${APP_NAME}' not found in current directory"
         exit 1
     fi
 
@@ -125,7 +125,7 @@ install_application() {
     mkdir -p "$INSTALL_DIR"
 
     # Copy binary
-    cp "${APP_NAME}-rpi" "$INSTALL_DIR/$APP_NAME"
+    cp "${APP_NAME}" "$INSTALL_DIR/$APP_NAME"
     chmod +x "$INSTALL_DIR/$APP_NAME"
 
     # Copy configuration

@@ -87,13 +87,13 @@ ls -la /dev/spi*
 ### Quick Installation
 ```bash
 # Download latest release for RPi 2B v1.1
-wget https://github.com/yourrepo/rfid-tool-rpi/releases/latest/download/rfid-tool-rpi2b-v1.1-1.0.0.tar.gz
+wget https://github.com/yourrepo/rfid-tool-rpi/releases/latest/download/rfid-tool-rpi2b-1.0.0.tar.gz
 
 # Extract
-tar -xzf rfid-tool-rpi2b-v1.1-1.0.0.tar.gz
+tar -xzf rfid-tool-rpi2b-1.0.0.tar.gz
 
 # Navigate to extracted directory
-cd rfid-tool-rpi2b-v1.1-1.0.0
+cd rfid-tool-rpi2b-1.0.0
 
 # Verify your system is compatible
 ./verify-system.sh

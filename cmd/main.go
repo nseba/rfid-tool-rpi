@@ -34,11 +34,15 @@ func main() {
 	// Initialize RFID reader
 	rfidReader, err := rfid.NewReader(cfg.RFID)
 	if err != nil {
-		log.Fatalf("Failed to initialize RFID reader: %v", err)
+		log.Printf("Warning: Failed to initialize RFID reader: %v", err)
+		log.Println("Web interface will start but RFID functionality will be unavailable")
+		rfidReader = nil
 	}
 	defer func() {
-		if err := rfidReader.Close(); err != nil {
-			log.Printf("Failed to close RFID reader: %v", err)
+		if rfidReader != nil {
+			if err := rfidReader.Close(); err != nil {
+				log.Printf("Failed to close RFID reader: %v", err)
+			}
 		}
 	}()
 
@@ -48,6 +52,9 @@ func main() {
 
 	if *webMode {
 		log.Println("Starting in web interface mode...")
+		if rfidReader == nil {
+			log.Println("Note: RFID functionality will be limited due to hardware initialization failure")
+		}
 		webServer := server.NewWebServer(*port, rfidReader, cfg)
 
 		go func() {
@@ -62,6 +69,9 @@ func main() {
 			log.Printf("Failed to stop web server: %v", err)
 		}
 	} else if *hwMode {
+		if rfidReader == nil {
+			log.Fatalf("Cannot start hardware mode: RFID reader initialization failed")
+		}
 		log.Println("Starting in hardware mode...")
 		hwController, err := hardware.NewController(rfidReader, cfg.Hardware)
 		if err != nil {

@@ -10,7 +10,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"rfid-tool-rpi/internal/config"
@@ -69,7 +68,11 @@ func (ws *WebServer) Start() error {
 	router := mux.NewRouter()
 
 	// Static files
-	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(ws.config.Web.StaticDir))))
+	staticDir := "web/static"
+	if ws.config != nil && ws.config.Web.StaticDir != "" {
+		staticDir = ws.config.Web.StaticDir
+	}
+	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
 
 	// API routes
 	api := router.PathPrefix("/api").Subrouter()
@@ -87,7 +90,7 @@ func (ws *WebServer) Start() error {
 	router.Use(ws.corsMiddleware)
 
 	ws.server = &http.Server{
-		Addr:         ":" + strings.TrimPrefix(ws.server.Addr, ":"),
+		Addr:         ":8080",
 		Handler:      router,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
@@ -478,6 +481,13 @@ func (ws *WebServer) handleIndex(w http.ResponseWriter, _ *http.Request) {
 
 // handleScan handles card scanning requests
 func (ws *WebServer) handleScan(w http.ResponseWriter, _ *http.Request) {
+	if ws.reader == nil {
+		ws.writeJSON(w, APIResponse{
+			Success: false,
+			Message: "RFID reader not available",
+		})
+		return
+	}
 	card, err := ws.reader.ScanForCard()
 	if err != nil {
 		ws.writeJSON(w, APIResponse{
@@ -503,6 +513,13 @@ func (ws *WebServer) handleScan(w http.ResponseWriter, _ *http.Request) {
 
 // handleRead handles reading all card data
 func (ws *WebServer) handleRead(w http.ResponseWriter, _ *http.Request) {
+	if ws.reader == nil {
+		ws.writeJSON(w, APIResponse{
+			Success: false,
+			Message: "RFID reader not available",
+		})
+		return
+	}
 	if ws.reader.GetLastCard() == nil {
 		ws.writeJSON(w, APIResponse{
 			Success: false,
@@ -563,6 +580,13 @@ func (ws *WebServer) handleReadBlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if ws.reader == nil {
+		ws.writeJSON(w, APIResponse{
+			Success: false,
+			Message: "RFID reader not available",
+		})
+		return
+	}
 	if ws.reader.GetLastCard() == nil {
 		ws.writeJSON(w, APIResponse{
 			Success: false,
@@ -640,6 +664,13 @@ func (ws *WebServer) handleWrite(w http.ResponseWriter, r *http.Request) {
 
 // handleCardInfo handles getting current card information
 func (ws *WebServer) handleCardInfo(w http.ResponseWriter, _ *http.Request) {
+	if ws.reader == nil {
+		ws.writeJSON(w, APIResponse{
+			Success: false,
+			Message: "RFID reader not available",
+		})
+		return
+	}
 	card := ws.reader.GetLastCard()
 	if card == nil {
 		ws.writeJSON(w, APIResponse{
