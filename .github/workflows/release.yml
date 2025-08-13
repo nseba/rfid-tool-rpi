@@ -1,0 +1,492 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  GO_VERSION: '1.21'
+  APP_NAME: 'rfid-tool'
+
+jobs:
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Validate and extract version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+          IS_PRERELEASE="${{ github.event.inputs.prerelease }}"
+        else
+          VERSION=${GITHUB_REF#refs/tags/}
+          # Check if it's a prerelease (contains alpha, beta, rc)
+          if [[ $VERSION =~ (alpha|beta|rc) ]]; then
+            IS_PRERELEASE=true
+          else
+            IS_PRERELEASE=false
+          fi
+        fi
+
+        # Validate version format
+        if [[ ! $VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+          echo "Error: Invalid version format: $VERSION"
+          echo "Expected format: v1.2.3 or v1.2.3-alpha.1"
+          exit 1
+        fi
+
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "IS_PRERELEASE=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+
+        echo "Release version: $VERSION"
+        echo "Is prerelease: $IS_PRERELEASE"
+
+    - name: Check if tag exists (for workflow_dispatch)
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        if git rev-parse "${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+          echo "Error: Tag ${{ steps.version.outputs.version }} already exists"
+          exit 1
+        fi
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download && go mod verify
+
+    - name: Run tests
+      run: go test -v -race -coverprofile=coverage.out ./...
+
+    - name: Run linter
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        args: --timeout=5m
+
+  build:
+    name: Build Binaries
+    runs-on: ubuntu-latest
+    needs: [validate, test]
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: arm
+            goarm: 6
+            suffix: rpi
+            desc: "Raspberry Pi 2B/3/4 (ARM v6)"
+          - goos: linux
+            goarch: arm
+            goarm: 7
+            suffix: armv7
+            desc: "ARM v7 (Raspberry Pi 3/4)"
+          - goos: linux
+            goarch: arm64
+            suffix: arm64
+            desc: "ARM64 (Raspberry Pi 4, Pi 400)"
+          - goos: linux
+            goarch: amd64
+            suffix: amd64
+            desc: "x86-64 Linux"
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Build binary
+      env:
+        CGO_ENABLED: 0
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        GOARM: ${{ matrix.goarm }}
+      run: |
+        VERSION=${{ needs.validate.outputs.version }}
+        BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+        GIT_COMMIT=$(git rev-parse --short HEAD)
+
+        LDFLAGS="-s -w -X main.version=${VERSION#v} -X main.buildTime=$BUILD_TIME -X main.gitCommit=$GIT_COMMIT"
+
+        mkdir -p build
+        go build -ldflags "$LDFLAGS" -o build/${{ env.APP_NAME }}-${{ matrix.suffix }} ./cmd/main.go
+
+    - name: Create distribution package
+      run: |
+        VERSION=${{ needs.validate.outputs.version }}
+        DIST_NAME="${{ env.APP_NAME }}-${{ matrix.suffix }}-${VERSION#v}"
+        DIST_PATH="dist/$DIST_NAME"
+
+        mkdir -p "$DIST_PATH"
+
+        # Copy binary
+        cp build/${{ env.APP_NAME }}-${{ matrix.suffix }} "$DIST_PATH/${{ env.APP_NAME }}"
+        chmod +x "$DIST_PATH/${{ env.APP_NAME }}"
+
+        # Copy configuration and documentation
+        cp config.json "$DIST_PATH/"
+        cp README.md "$DIST_PATH/"
+        cp WIRING.md "$DIST_PATH/"
+        cp QUICKSTART.md "$DIST_PATH/"
+        cp PROJECT_SUMMARY.md "$DIST_PATH/"
+
+        # Create platform-specific install script
+        if [ "${{ matrix.suffix }}" = "rpi" ]; then
+          cp scripts/install-rpi.sh "$DIST_PATH/install.sh"
+        else
+          # Generic Linux install script
+          sed 's/rfid-tool-rpi/rfid-tool/g; s/Pi 2B/Linux/g' scripts/install-rpi.sh > "$DIST_PATH/install.sh"
+        fi
+        chmod +x "$DIST_PATH/install.sh"
+
+        # Create uninstall script
+        cat > "$DIST_PATH/uninstall.sh" << 'EOF'
+        #!/bin/bash
+        SERVICE_NAME="rfid-tool"
+        INSTALL_DIR="/opt/rfid-tool"
+
+        echo "Uninstalling RFID Tool..."
+
+        if [ "$EUID" -ne 0 ]; then
+            echo "Please run as root (use sudo)"
+            exit 1
+        fi
+
+        systemctl stop ${SERVICE_NAME}-web 2>/dev/null || true
+        systemctl stop ${SERVICE_NAME}-hw 2>/dev/null || true
+        systemctl disable ${SERVICE_NAME}-web 2>/dev/null || true
+        systemctl disable ${SERVICE_NAME}-hw 2>/dev/null || true
+
+        rm -f /etc/systemd/system/${SERVICE_NAME}-web.service
+        rm -f /etc/systemd/system/${SERVICE_NAME}-hw.service
+        systemctl daemon-reload
+
+        rm -rf $INSTALL_DIR
+        echo "Uninstall complete!"
+        EOF
+        chmod +x "$DIST_PATH/uninstall.sh"
+
+        # Create platform info file
+        cat > "$DIST_PATH/PLATFORM.md" << EOF
+        # Platform Information
+
+        **Target Platform:** ${{ matrix.desc }}
+        **Architecture:** ${{ matrix.goos }}/${{ matrix.goarch }}${{ matrix.goarm && format(' v{0}', matrix.goarm) || '' }}
+        **Build Version:** ${VERSION#v}
+        **Build Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+        **Git Commit:** $(git rev-parse --short HEAD)
+
+        ## Installation
+        \`\`\`bash
+        tar -xzf ${DIST_NAME}.tar.gz
+        cd $DIST_NAME
+        sudo ./install.sh
+        \`\`\`
+
+        ## Compatibility
+        This build is optimized for: ${{ matrix.desc }}
+        EOF
+
+        # Create checksums
+        cd dist
+        sha256sum "$DIST_NAME"/* > "$DIST_NAME/checksums.txt"
+
+        # Create archive
+        tar -czf "${DIST_NAME}.tar.gz" "$DIST_NAME"
+        sha256sum "${DIST_NAME}.tar.gz" > "${DIST_NAME}.tar.gz.sha256"
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ env.APP_NAME }}-${{ matrix.suffix }}
+        path: |
+          dist/${{ env.APP_NAME }}-${{ matrix.suffix }}-${{ needs.validate.outputs.version }}*.tar.gz*
+        retention-days: 30
+
+  docker:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [validate, test]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to DockerHub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.APP_NAME }}
+          ghcr.io/${{ github.repository_owner }}/${{ env.APP_NAME }}
+        tags: |
+          type=semver,pattern={{version}},value=${{ needs.validate.outputs.version }}
+          type=semver,pattern={{major}}.{{minor}},value=${{ needs.validate.outputs.version }}
+          type=semver,pattern={{major}},value=${{ needs.validate.outputs.version }}
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/arm/v6,linux/arm/v7,linux/arm64,linux/amd64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          VERSION=${{ needs.validate.outputs.version }}
+          BUILD_TIME=${{ steps.meta.outputs.build-time }}
+          GIT_COMMIT=${{ github.sha }}
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate, test, build, docker]
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts
+
+    - name: Prepare release assets
+      run: |
+        mkdir -p release-assets
+        find artifacts -name "*.tar.gz*" -exec cp {} release-assets/ \;
+        ls -la release-assets/
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        VERSION=${{ needs.validate.outputs.version }}
+
+        # Get the previous tag
+        PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+        # Generate changelog
+        if [ -n "$PREV_TAG" ]; then
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)" ${PREV_TAG}..HEAD --grep="^feat\|^fix\|^docs\|^style\|^refactor\|^perf\|^test\|^chore" | head -20)
+          FULL_CHANGELOG=$(git log --pretty=format:"- %s" ${PREV_TAG}..HEAD)
+        else
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)" HEAD --grep="^feat\|^fix\|^docs\|^style\|^refactor\|^perf\|^test\|^chore" | head -20)
+          FULL_CHANGELOG=$(git log --pretty=format:"- %s" HEAD)
+        fi
+
+        # Create release notes
+        cat > release_notes.md << EOF
+        # RFID Tool for Raspberry Pi $VERSION
+
+        ## 🚀 What's New
+        ${CHANGELOG:-"- Initial release"}
+
+        ## 📦 Downloads
+
+        Choose the appropriate package for your system:
+
+        | Platform | Architecture | File |
+        |----------|-------------|------|
+        | Raspberry Pi 2B/3/4 | ARM v6 | \`${{ env.APP_NAME }}-rpi-${VERSION#v}.tar.gz\` |
+        | Raspberry Pi 3/4 | ARM v7 | \`${{ env.APP_NAME }}-armv7-${VERSION#v}.tar.gz\` |
+        | Raspberry Pi 4/400 | ARM64 | \`${{ env.APP_NAME }}-arm64-${VERSION#v}.tar.gz\` |
+        | Linux PC | x86-64 | \`${{ env.APP_NAME }}-amd64-${VERSION#v}.tar.gz\` |
+
+        ## 🐳 Docker Images
+
+        \`\`\`bash
+        # DockerHub
+        docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.APP_NAME }}:${VERSION#v}
+        docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.APP_NAME }}:latest
+
+        # GitHub Container Registry
+        docker pull ghcr.io/${{ github.repository_owner }}/${{ env.APP_NAME }}:${VERSION#v}
+        docker pull ghcr.io/${{ github.repository_owner }}/${{ env.APP_NAME }}:latest
+        \`\`\`
+
+        ## 🛠 Installation
+
+        ### Quick Install (Raspberry Pi)
+        \`\`\`bash
+        # Download and install
+        wget https://github.com/${{ github.repository }}/releases/download/$VERSION/${{ env.APP_NAME }}-rpi-${VERSION#v}.tar.gz
+        tar -xzf ${{ env.APP_NAME }}-rpi-${VERSION#v}.tar.gz
+        cd ${{ env.APP_NAME }}-rpi-${VERSION#v}
+        sudo ./install.sh
+
+        # Start web interface
+        sudo systemctl start rfid-tool-web
+        sudo systemctl enable rfid-tool-web
+
+        # Access at http://[pi-ip]:8080
+        \`\`\`
+
+        ### Hardware Requirements
+        - RFID-RC522 Module
+        - Breadboard and jumper wires
+        - Optional: Push buttons and LEDs for hardware interface
+
+        ## 🔧 Features
+        - 🌐 **Web Interface**: Modern browser-based interface with real-time updates
+        - 🔘 **Hardware Interface**: Physical buttons and LED indicators
+        - 📡 **RFID Support**: MIFARE Classic 1K/4K and Ultralight cards
+        - 🔄 **Real-time Detection**: WebSocket-powered live card detection
+        - 📝 **Block-level Operations**: Read/write individual card blocks
+        - ⚙️ **Easy Installation**: Automated setup with systemd services
+        - 🐳 **Docker Support**: Multi-architecture container images
+        - 📚 **Complete Documentation**: Comprehensive guides and troubleshooting
+
+        ## 📖 Documentation
+        - [Complete Setup Guide](https://github.com/${{ github.repository }}/blob/$VERSION/README.md)
+        - [Hardware Wiring Guide](https://github.com/${{ github.repository }}/blob/$VERSION/WIRING.md)
+        - [Quick Start (10 minutes)](https://github.com/${{ github.repository }}/blob/$VERSION/QUICKSTART.md)
+        - [Project Technical Summary](https://github.com/${{ github.repository }}/blob/$VERSION/PROJECT_SUMMARY.md)
+
+        ## 🔍 Verification
+
+        All release assets include SHA256 checksums for verification:
+        \`\`\`bash
+        # Verify download integrity
+        sha256sum -c ${{ env.APP_NAME }}-[platform]-${VERSION#v}.tar.gz.sha256
+        \`\`\`
+
+        ## 🐛 Bug Reports & 🚀 Feature Requests
+
+        - [Report bugs](https://github.com/${{ github.repository }}/issues/new?template=bug_report.md)
+        - [Request features](https://github.com/${{ github.repository }}/issues/new?template=feature_request.md)
+        - [Hardware support](https://github.com/${{ github.repository }}/issues/new?template=hardware_support.md)
+
+        ---
+
+        **Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG:-$(git rev-list --max-parents=0 HEAD)}...$VERSION
+        EOF
+
+        echo "Generated release notes:"
+        cat release_notes.md
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ needs.validate.outputs.version }}
+        name: RFID Tool ${{ needs.validate.outputs.version }}
+        body_path: release_notes.md
+        draft: false
+        prerelease: ${{ needs.validate.outputs.is_prerelease }}
+        files: |
+          release-assets/*
+        generate_release_notes: false
+        make_latest: ${{ needs.validate.outputs.is_prerelease == 'false' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify:
+    name: Notify Release
+    runs-on: ubuntu-latest
+    needs: [validate, create-release]
+    if: always()
+    steps:
+    - name: Notify Discord (if configured)
+      if: success() && secrets.DISCORD_WEBHOOK
+      uses: Ilshidur/action-discord@master
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      with:
+        args: |
+          🎉 **RFID Tool ${{ needs.validate.outputs.version }}** has been released!
+
+          📦 Download: https://github.com/${{ github.repository }}/releases/tag/${{ needs.validate.outputs.version }}
+          🐳 Docker: `docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.APP_NAME }}:${{ needs.validate.outputs.version }}`
+
+    - name: Notify Slack (if configured)
+      if: success() && secrets.SLACK_WEBHOOK
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        text: |
+          🎉 RFID Tool ${{ needs.validate.outputs.version }} has been released!
+          Download: https://github.com/${{ github.repository }}/releases/tag/${{ needs.validate.outputs.version }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+    - name: Update README badges
+      if: success()
+      run: |
+        echo "Release ${{ needs.validate.outputs.version }} completed successfully!"
+        echo "Docker images and GitHub release are now available."

@@ -1,0 +1,22 @@
+{
+  "rfid": {
+    "spi_bus": 0,
+    "spi_device": 0,
+    "reset_pin": 22,
+    "irq_pin": 18,
+    "spi_speed": 1000000,
+    "retry_count": 3
+  },
+  "hardware": {
+    "read_button": 2,
+    "write_button": 3,
+    "status_led": 4,
+    "error_led": 17,
+    "ready_led": 27
+  },
+  "web": {
+    "static_dir": "web/static",
+    "templates_dir": "web/templates",
+    "upload_dir": "uploads"
+  }
+}

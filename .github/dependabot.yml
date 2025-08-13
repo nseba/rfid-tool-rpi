@@ -1,0 +1,82 @@
+# GitHub Dependabot configuration for automated dependency updates
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Go modules dependency updates
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "rfid-tool-maintainers"
+    assignees:
+      - "rfid-tool-maintainers"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "go"
+    rebase-strategy: "auto"
+    # Group related updates together
+    groups:
+      periph-io:
+        patterns:
+          - "periph.io/x/*"
+      gorilla:
+        patterns:
+          - "github.com/gorilla/*"
+      testing:
+        patterns:
+          - "github.com/stretchr/testify"
+          - "github.com/golang/mock"
+
+  # GitHub Actions workflow dependency updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "rfid-tool-maintainers"
+    assignees:
+      - "rfid-tool-maintainers"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    rebase-strategy: "auto"
+    # Group GitHub Actions updates
+    groups:
+      actions:
+        patterns:
+          - "actions/*"
+      setup:
+        patterns:
+          - "**/setup-*"
+
+  # Docker dependencies (if Dockerfile is added later)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "docker"
