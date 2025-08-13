@@ -2,7 +2,7 @@
 # Supports cross-platform builds for ARM and x64
 
 # Build stage
-FROM --platform=$BUILDPLATFORM golang:1.21-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
