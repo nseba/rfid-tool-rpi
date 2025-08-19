@@ -1,7 +1,7 @@
 # Development Dockerfile for RFID Tool
 # Includes development tools, debugger, and hot reload capabilities
 
-FROM golang:1.24-alpine AS base
+FROM golang:1.25-alpine AS base
 
 # Install system dependencies and development tools
 RUN apk add --no-cache \
