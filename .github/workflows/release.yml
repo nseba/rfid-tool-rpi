@@ -29,7 +29,7 @@ jobs:
             is_prerelease: ${{ steps.version.outputs.is_prerelease }}
         steps:
             - name: Checkout code
-              uses: actions/checkout@v5
+              uses: actions/checkout@v6
               with:
                   fetch-depth: 0
 
@@ -76,10 +76,10 @@ jobs:
         needs: validate
         steps:
             - name: Checkout code
-              uses: actions/checkout@v5
+              uses: actions/checkout@v6
 
             - name: Set up Go
-              uses: actions/setup-go@v5
+              uses: actions/setup-go@v6
               with:
                   go-version: ${{ env.GO_VERSION }}
 
@@ -132,12 +132,12 @@ jobs:
                       desc: "x86-64 Linux"
         steps:
             - name: Checkout code
-              uses: actions/checkout@v5
+              uses: actions/checkout@v6
               with:
                   fetch-depth: 0
 
             - name: Set up Go
-              uses: actions/setup-go@v5
+              uses: actions/setup-go@v6
               with:
                   go-version: ${{ env.GO_VERSION }}
 
@@ -252,7 +252,7 @@ jobs:
                   sha256sum "${DIST_NAME}.tar.gz" > "${DIST_NAME}.tar.gz.sha256"
 
             - name: Upload build artifacts
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: ${{ env.APP_NAME }}-${{ matrix.suffix }}
                   path: |
@@ -265,7 +265,7 @@ jobs:
         needs: [validate, test]
         steps:
             - name: Checkout code
-              uses: actions/checkout@v5
+              uses: actions/checkout@v6
 
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v3
@@ -319,12 +319,12 @@ jobs:
             contents: write
         steps:
             - name: Checkout code
-              uses: actions/checkout@v5
+              uses: actions/checkout@v6
               with:
                   fetch-depth: 0
 
             - name: Download all artifacts
-              uses: actions/download-artifact@v5
+              uses: actions/download-artifact@v6
               with:
                   path: artifacts
 
